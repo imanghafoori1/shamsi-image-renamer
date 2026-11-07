@@ -13,6 +13,20 @@ import (
 	"github.com/rwcarlsen/goexif/exif"
 )
 
+// Report holds the outcome of a rename run.
+type Report struct {
+	Renamed []string // "old -> new"
+	Skipped []string // "filename: reason"
+}
+
+func (r *Report) addRenamed(oldName, newName string) {
+	r.Renamed = append(r.Renamed, fmt.Sprintf("%s  ->  %s", oldName, newName))
+}
+
+func (r *Report) addSkipped(name, reason string) {
+	r.Skipped = append(r.Skipped, fmt.Sprintf("%s  (%s)", name, reason))
+}
+
 func main() {
 	var dirEdit *walk.LineEdit
 	var statusLabel *walk.Label
@@ -54,12 +68,14 @@ func main() {
 						statusLabel.SetText("Please enter a path.")
 						return
 					}
-					count, err := processDir(dir)
+					report, err := processDir(dir)
 					if err != nil {
 						statusLabel.SetText("Error: " + err.Error())
-					} else {
-						statusLabel.SetText(fmt.Sprintf("Done! Renamed %d files.", count))
+						return
 					}
+					statusLabel.SetText(fmt.Sprintf("Done. Renamed %d, skipped %d.",
+						len(report.Renamed), len(report.Skipped)))
+					showReport(report)
 				},
 			},
 			Label{AssignTo: &statusLabel, Text: "Ready."},
@@ -67,13 +83,14 @@ func main() {
 	}.Run()
 }
 
-func processDir(dir string) (int, error) {
+func processDir(dir string) (*Report, error) {
+	report := &Report{}
+
 	entries, err := os.ReadDir(dir)
 	if err != nil {
-		return 0, err
+		return report, err
 	}
 
-	count := 0
 	for _, entry := range entries {
 		if entry.IsDir() {
 			continue
@@ -86,46 +103,102 @@ func processDir(dir string) (int, error) {
 		fullPath := filepath.Join(dir, entry.Name())
 		f, err := os.Open(fullPath)
 		if err != nil {
+			report.addSkipped(entry.Name(), "cannot open")
 			continue
 		}
 
 		x, err := exif.Decode(f)
 		f.Close()
 		if err != nil || x == nil {
-			continue // No EXIF data, or stripped by another tool
+			report.addSkipped(entry.Name(), "no EXIF data")
+			continue
 		}
 
 		tag, err := x.Get(exif.DateTimeOriginal)
 		if err != nil {
+			report.addSkipped(entry.Name(), "no DateTimeOriginal")
 			continue
 		}
 
 		dateStr, err := tag.StringVal()
 		if err != nil {
+			report.addSkipped(entry.Name(), "unreadable date tag")
 			continue
 		}
 
 		tm, err := time.Parse("2006:01:02 15:04:05", dateStr)
 		if err != nil {
+			report.addSkipped(entry.Name(), "bad date format")
 			continue
 		}
 
-		// Convert to Jalali
 		jy, jm, _, _ := jalaali.ToJalaali(tm.Year(), tm.Month(), tm.Day())
 		monthName := getPersianMonth(jm)
 
-		// Build new filename: IMG_0003-مهر-۱۴۰۴.jpg
 		nameWithoutExt := strings.TrimSuffix(entry.Name(), filepath.Ext(entry.Name()))
 		newName := fmt.Sprintf("%s-%s-%d%s", nameWithoutExt, monthName, jy, filepath.Ext(entry.Name()))
 		newPath := filepath.Join(dir, newName)
 
-		if _, err := os.Stat(newPath); os.IsNotExist(err) {
-			if err := os.Rename(fullPath, newPath); err == nil {
-				count++
-			}
+		if _, err := os.Stat(newPath); err == nil {
+			report.addSkipped(entry.Name(), "target already exists")
+			continue
 		}
+
+		if err := os.Rename(fullPath, newPath); err != nil {
+			report.addSkipped(entry.Name(), "rename failed")
+			continue
+		}
+		report.addRenamed(entry.Name(), newName)
 	}
-	return count, nil
+	return report, nil
+}
+
+// showReport opens a modal window listing what was renamed and what was skipped.
+func showReport(r *Report) {
+	var w *walk.MainWindow
+
+	summary := fmt.Sprintf("Renamed: %d    Skipped: %d", len(r.Renamed), len(r.Skipped))
+
+	renamedText := strings.Join(r.Renamed, "\r\n")
+	if renamedText == "" {
+		renamedText = "(none)"
+	}
+	skippedText := strings.Join(r.Skipped, "\r\n")
+	if skippedText == "" {
+		skippedText = "(none)"
+	}
+
+	MainWindow{
+		AssignTo: &w,
+		Title:    "Rename Report",
+		MinSize:  Size{Width: 720, Height: 520},
+		Layout:   VBox{},
+		Children: []Widget{
+			Label{Text: summary},
+			Label{Text: "Renamed files:"},
+			TextEdit{
+				ReadOnly: true,
+				Text:     renamedText,
+				VScroll:  true,
+				MinSize:  Size{Height: 180},
+			},
+			Label{Text: "Skipped files:"},
+			TextEdit{
+				ReadOnly: true,
+				Text:     skippedText,
+				VScroll:  true,
+				MinSize:  Size{Height: 180},
+			},
+			PushButton{
+				Text: "Close",
+				OnClicked: func() {
+					w.Close()
+				},
+			},
+		},
+	}.Create()
+
+	w.Run()
 }
 
 func getPersianMonth(m jalaali.Month) string {
