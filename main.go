@@ -26,8 +26,47 @@ func (r *Report) addSkipped(name, reason string) {
 	r.Skipped = append(r.Skipped, fmt.Sprintf("%s  (%s)", name, reason))
 }
 
-// Bigger font for section labels
 var bigFont = Font{PointSize: 11, Bold: true}
+
+// DateFormat describes one selectable suffix style.
+type DateFormat struct {
+	Label  string // shown in the ComboBox
+	Suffix func(jy int, jm jalaali.Month, jd int) string
+}
+
+// Formats offered in the GUI. Order matters: index 0 is default.
+var dateFormats = []DateFormat{
+	{
+		Label: "1398-11-28  (year-month-day)",
+		Suffix: func(jy int, jm jalaali.Month, jd int) string {
+			return fmt.Sprintf("-%04d-%02d-%02d", jy, int(jm), jd)
+		},
+	},
+	{
+		Label: "1398-bahman-28  (year-monthname-day)",
+		Suffix: func(jy int, jm jalaali.Month, jd int) string {
+			return fmt.Sprintf("-%d-%s-%d", jy, monthNameLatin(jm), jd)
+		},
+	},
+	{
+		Label: "1398-bahman  (year-monthname)",
+		Suffix: func(jy int, jm jalaali.Month, jd int) string {
+			return fmt.Sprintf("-%d-%s", jy, monthNameLatin(jm))
+		},
+	},
+	{
+		Label: "بهمن-1398  (monthname-year, Persian)",
+		Suffix: func(jy int, jm jalaali.Month, jd int) string {
+			return fmt.Sprintf("-%s-%d", monthNamePersian(jm), jy)
+		},
+	},
+	{
+		Label: "بهمن  (monthname only, Persian)",
+		Suffix: func(jy int, jm jalaali.Month, jd int) string {
+			return fmt.Sprintf("-%s", monthNamePersian(jm))
+		},
+	},
+}
 
 func main() {
 	var dirEdit *walk.LineEdit
@@ -36,6 +75,7 @@ func main() {
 	var renamedBox *walk.TextEdit
 	var skippedBox *walk.TextEdit
 	var prependModelCheck *walk.CheckBox
+	var formatCombo *walk.ComboBox
 
 	updateReport := func(r *Report) {
 		summaryLabel.SetText(fmt.Sprintf("Renamed: %d      Skipped: %d",
@@ -54,9 +94,15 @@ func main() {
 		}
 	}
 
+	// Build the list of format labels for the ComboBox
+	formatLabels := make([]string, len(dateFormats))
+	for i, f := range dateFormats {
+		formatLabels[i] = f.Label
+	}
+
 	MainWindow{
 		Title:   "JPG Shamsi Renamer",
-		MinSize: Size{Width: 720, Height: 640},
+		MinSize: Size{Width: 760, Height: 700},
 		Layout:  VBox{},
 		Children: []Widget{
 			Label{Text: "Directory Path:", Font: bigFont},
@@ -85,9 +131,23 @@ func main() {
 				},
 			},
 
-			CheckBox{
-				AssignTo: &prependModelCheck,
-				Text:     "Prepend camera model to filename",
+			// Options row: model checkbox + date format combobox
+			Composite{
+				Layout: HBox{},
+				Children: []Widget{
+					CheckBox{
+						AssignTo: &prependModelCheck,
+						Text:     "Prepend camera model",
+					},
+					HSpacer{},
+					Label{Text: "Date format:"},
+					ComboBox{
+						AssignTo:     &formatCombo,
+						Model:        formatLabels,
+						CurrentIndex: 0,
+						MinSize:      Size{Width: 300},
+					},
+				},
 			},
 
 			Composite{
@@ -105,7 +165,11 @@ func main() {
 								statusLabel.SetText("Please enter a path.")
 								return
 							}
-							report, err := processDir(dir, prependModelCheck.Checked())
+							idx := formatCombo.CurrentIndex()
+							if idx < 0 || idx >= len(dateFormats) {
+								idx = 0
+							}
+							report, err := processDir(dir, prependModelCheck.Checked(), dateFormats[idx])
 							if err != nil {
 								statusLabel.SetText("Error: " + err.Error())
 								return
@@ -143,10 +207,8 @@ func main() {
 	}.Run()
 }
 
-// sanitizeModel removes characters that are unsafe or ugly in filenames.
 func sanitizeModel(s string) string {
 	s = strings.TrimSpace(s)
-	// Remove characters illegal in Windows filenames + whitespace
 	replacer := strings.NewReplacer(
 		"\\", "", "/", "", ":", "", "*", "", "?", "", "\"", "",
 		"<", "", ">", "", "|", "", " ", "", "\t", "", "\r", "", "\n", "",
@@ -154,7 +216,7 @@ func sanitizeModel(s string) string {
 	return replacer.Replace(s)
 }
 
-func processDir(dir string, prependModel bool) (*Report, error) {
+func processDir(dir string, prependModel bool, format DateFormat) (*Report, error) {
 	report := &Report{}
 
 	entries, err := os.ReadDir(dir)
@@ -185,7 +247,6 @@ func processDir(dir string, prependModel bool) (*Report, error) {
 			continue
 		}
 
-		// --- Date ---
 		tag, err := x.Get(exif.DateTimeOriginal)
 		if err != nil {
 			report.addSkipped(entry.Name(), "no DateTimeOriginal")
@@ -202,7 +263,6 @@ func processDir(dir string, prependModel bool) (*Report, error) {
 			continue
 		}
 
-		// --- Camera model (only if requested) ---
 		modelPrefix := ""
 		if prependModel {
 			if modelTag, err := x.Get(exif.Model); err == nil {
@@ -213,18 +273,14 @@ func processDir(dir string, prependModel bool) (*Report, error) {
 					}
 				}
 			}
-			// If model tag missing, silently continue without prefix.
-			// The file still gets renamed with its date suffix.
 		}
 
-		jy, jm, _, _ := jalaali.ToJalaali(tm.Year(), tm.Month(), tm.Day())
-		monthName := getPersianMonth(jm)
+		jy, jm, jd, _ := jalaali.ToJalaali(tm.Year(), tm.Month(), tm.Day())
+		suffix := format.Suffix(jy, jm, jd)
 
-		suffix := fmt.Sprintf("-%s-%d", monthName, jy)
 		fileExt := filepath.Ext(entry.Name())
 		nameWithoutExt := strings.TrimSuffix(entry.Name(), fileExt)
 
-		// Already renamed check must account for the optional prefix.
 		alreadyHasSuffix := strings.HasSuffix(nameWithoutExt, suffix)
 		alreadyHasPrefix := modelPrefix == "" || strings.HasPrefix(nameWithoutExt, modelPrefix)
 
@@ -250,7 +306,20 @@ func processDir(dir string, prependModel bool) (*Report, error) {
 	return report, nil
 }
 
-func getPersianMonth(m jalaali.Month) string {
+// Latin (transliterated) month names, useful in filenames.
+func monthNameLatin(m jalaali.Month) string {
+	months := []string{
+		"farvardin", "ordibehesht", "khordad", "tir", "mordad", "shahrivar",
+		"mehr", "aban", "azar", "dey", "bahman", "esfand",
+	}
+	if m >= 1 && m <= 12 {
+		return months[int(m)-1]
+	}
+	return ""
+}
+
+// Persian month names.
+func monthNamePersian(m jalaali.Month) string {
 	months := []string{
 		"فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور",
 		"مهر", "آبان", "آذر", "دی", "بهمن", "اسفند",
