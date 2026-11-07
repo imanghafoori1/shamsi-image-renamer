@@ -19,11 +19,33 @@ func main() {
 
 	MainWindow{
 		Title:   "JPG Shamsi Renamer",
-		MinSize: Size{Width: 500, Height: 200},
+		MinSize: Size{Width: 560, Height: 200},
 		Layout:  VBox{},
 		Children: []Widget{
 			Label{Text: "Directory Path:"},
-			LineEdit{AssignTo: &dirEdit},
+			Composite{
+				Layout: HBox{},
+				Children: []Widget{
+					LineEdit{AssignTo: &dirEdit},
+					PushButton{
+						Text: "Browse...",
+						OnClicked: func() {
+							dlg := new(walk.FileDialog)
+							dlg.Title = "Select Directory"
+							dlg.InitialDirPath = dirEdit.Text()
+
+							if ok, err := dlg.ShowBrowseFolder(nil); err != nil {
+								statusLabel.SetText("Error: " + err.Error())
+							} else if !ok {
+								statusLabel.SetText("Browse cancelled.")
+							} else {
+								dirEdit.SetText(dlg.FilePath)
+								statusLabel.SetText("Ready.")
+							}
+						},
+					},
+				},
+			},
 			PushButton{
 				Text: "Rename Files",
 				OnClicked: func() {
@@ -68,35 +90,29 @@ func processDir(dir string) (int, error) {
 		}
 
 		x, err := exif.Decode(f)
+		f.Close()
 		if err != nil || x == nil {
-			f.Close()
-			continue
+			continue // No EXIF data, or stripped by another tool
 		}
 
-
-		// Get DateTimeOriginal string and parse
 		tag, err := x.Get(exif.DateTimeOriginal)
 		if err != nil {
-			f.Close()
 			continue
 		}
-		// ... after obtaining tag ...
 
 		dateStr, err := tag.StringVal()
 		if err != nil {
-			f.Close()
 			continue
 		}
+
 		tm, err := time.Parse("2006:01:02 15:04:05", dateStr)
 		if err != nil {
-			f.Close()
 			continue
 		}
 
+		// Convert to Jalali
 		jy, jm, _, _ := jalaali.ToJalaali(tm.Year(), tm.Month(), tm.Day())
-		monthName := getPersianMonth(jm) // pass jm directly
-
-		// ... subsequent logic ...
+		monthName := getPersianMonth(jm)
 
 		// Build new filename: IMG_0003-مهر-۱۴۰۴.jpg
 		nameWithoutExt := strings.TrimSuffix(entry.Name(), filepath.Ext(entry.Name()))
@@ -118,7 +134,7 @@ func getPersianMonth(m jalaali.Month) string {
 		"مهر", "آبان", "آذر", "دی", "بهمن", "اسفند",
 	}
 	if m >= 1 && m <= 12 {
-		return months[m-1]
+		return months[int(m)-1]
 	}
 	return ""
 }
