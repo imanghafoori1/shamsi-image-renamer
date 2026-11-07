@@ -4,8 +4,7 @@ import (
 	. "github.com/lxn/walk/declarative"
 )
 
-// buildOptionsRow returns the "Prepend camera model" checkbox and the
-// date-format dropdown, on a single row with the label to the right.
+// buildOptionsRow returns the option checkboxes and the date-format dropdown.
 func buildOptionsRow(s *uiState) Widget {
 	formatLabels := make([]string, len(dateFormats))
 	for i, f := range dateFormats {
@@ -18,6 +17,11 @@ func buildOptionsRow(s *uiState) Widget {
 			CheckBox{
 				AssignTo: &s.prependModelCheck,
 				Text:     "Prepend camera model",
+				Font:     bodyFont,
+			},
+			CheckBox{
+				AssignTo: &s.recursiveCheck,
+				Text:     "Include subdirectories",
 				Font:     bodyFont,
 			},
 			HSpacer{},

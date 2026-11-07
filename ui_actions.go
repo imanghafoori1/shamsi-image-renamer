@@ -39,7 +39,7 @@ func runRename(s *uiState) {
 		idx = 0
 	}
 
-	report, err := processDir(dir, s.prependModelCheck.Checked(), dateFormats[idx])
+	report, err := processDir(dir, s.prependModelCheck.Checked(), dateFormats[idx], s.recursiveCheck.Checked())
 	if err != nil {
 		s.statusLabel.SetText("Error: " + err.Error())
 		return

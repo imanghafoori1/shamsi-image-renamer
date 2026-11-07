@@ -25,6 +25,7 @@ type uiState struct {
 	renamedBox        *walk.TextEdit
 	skippedBox        *walk.TextEdit
 	prependModelCheck *walk.CheckBox
+	recursiveCheck    *walk.CheckBox
 	formatCombo       *walk.ComboBox
 }
 

@@ -11,8 +11,9 @@ import (
 )
 
 // processDir renames all JPG/JPEG files in dir according to the chosen
-// options, and returns a Report describing what happened.
-func processDir(dir string, prependModel bool, format DateFormat) (*Report, error) {
+// options. If recursive is true, subdirectories are walked as well.
+// Returns a Report describing what happened.
+func processDir(dir string, prependModel bool, format DateFormat, recursive bool) (*Report, error) {
 	report := &Report{}
 
 	entries, err := os.ReadDir(dir)
@@ -22,6 +23,13 @@ func processDir(dir string, prependModel bool, format DateFormat) (*Report, erro
 
 	for _, entry := range entries {
 		if entry.IsDir() {
+			if recursive {
+				sub := filepath.Join(dir, entry.Name())
+				if err := walkDir(sub, prependModel, format, report); err != nil {
+					// Record the unreadable subdir as a skip, but keep going.
+					report.addSkipped(sub, "cannot read directory: "+err.Error())
+				}
+			}
 			continue
 		}
 		ext := strings.ToLower(filepath.Ext(entry.Name()))
@@ -31,6 +39,30 @@ func processDir(dir string, prependModel bool, format DateFormat) (*Report, erro
 		processFile(dir, entry.Name(), prependModel, format, report)
 	}
 	return report, nil
+}
+
+// walkDir recurses into subdir, processing JPG/JPEG files and descending
+// further into any subdirectories it finds.
+func walkDir(dir string, prependModel bool, format DateFormat, report *Report) error {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return err
+	}
+	for _, entry := range entries {
+		if entry.IsDir() {
+			sub := filepath.Join(dir, entry.Name())
+			if err := walkDir(sub, prependModel, format, report); err != nil {
+				report.addSkipped(sub, "cannot read directory: "+err.Error())
+			}
+			continue
+		}
+		ext := strings.ToLower(filepath.Ext(entry.Name()))
+		if ext != ".jpg" && ext != ".jpeg" {
+			continue
+		}
+		processFile(dir, entry.Name(), prependModel, format, report)
+	}
+	return nil
 }
 
 // processFile handles a single file and appends results to report.

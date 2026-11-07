@@ -28,7 +28,7 @@ func TestProcessDir_BasicRename(t *testing.T) {
 	writeJPEGWithEXIF(t, filepath.Join(dir, "IMG_0003.jpg"),
 		"2020:01:26 14:30:00", "Canon EOS 5D")
 
-	report, err := processDir(dir, false, dateFormats[2]) // year-monthname
+	report, err := processDir(dir, false, dateFormats[2], false) // year-monthname
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -51,7 +51,7 @@ func TestProcessDir_PrependModel(t *testing.T) {
 	writeJPEGWithEXIF(t, filepath.Join(dir, "IMG_0003.jpg"),
 		"2020:01:26 14:30:00", "NIKON D7200")
 
-	report, err := processDir(dir, true, dateFormats[2])
+	report, err := processDir(dir, true, dateFormats[2], false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -70,7 +70,7 @@ func TestProcessDir_NoEXIFIsSkipped(t *testing.T) {
 	// A JPG with SOI+EOI but no APP1 → exif.Decode returns an error.
 	writeJPEGWithEXIF(t, filepath.Join(dir, "plain.jpg"), "", "")
 
-	report, err := processDir(dir, false, dateFormats[0])
+	report, err := processDir(dir, false, dateFormats[0], false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -95,12 +95,12 @@ func TestProcessDir_Idempotent(t *testing.T) {
 	writeJPEGWithEXIF(t, filepath.Join(dir, "IMG_0003.jpg"),
 		"2020:01:26 14:30:00", "")
 
-	r1, _ := processDir(dir, false, dateFormats[2])
+	r1, _ := processDir(dir, false, dateFormats[2], false)
 	if len(r1.Renamed) != 1 {
 		t.Fatalf("first run: expected 1 renamed, got %v; skipped=%v", r1.Renamed, r1.Skipped)
 	}
 
-	r2, _ := processDir(dir, false, dateFormats[2])
+	r2, _ := processDir(dir, false, dateFormats[2], false)
 	if len(r2.Renamed) != 0 {
 		t.Errorf("second run: expected 0 renamed, got %v", r2.Renamed)
 	}
@@ -118,11 +118,11 @@ func TestProcessDir_FormatSwitchCleansOldSuffix(t *testing.T) {
 		"2020:01:26 14:30:00", "")
 
 	// Run 1: year-monthname → IMG_0003-1398-bahman.jpg
-	if r, _ := processDir(dir, false, dateFormats[2]); len(r.Renamed) != 1 {
+	if r, _ := processDir(dir, false, dateFormats[2], false); len(r.Renamed) != 1 {
 		t.Fatalf("run1: %v", r.Skipped)
 	}
 	// Run 2: year-month-day → should REPLACE, not accumulate.
-	if r, _ := processDir(dir, false, dateFormats[0]); len(r.Renamed) != 1 {
+	if r, _ := processDir(dir, false, dateFormats[0], false); len(r.Renamed) != 1 {
 		t.Fatalf("run2: %v", r.Skipped)
 	}
 
@@ -142,8 +142,8 @@ func TestProcessDir_ModelPrependIdempotent(t *testing.T) {
 		"2020:01:26 14:30:00", "NIKON D7200")
 
 	// Run 1 and 2 with model ON — must not double the prefix.
-	processDir(dir, true, dateFormats[2])
-	r2, _ := processDir(dir, true, dateFormats[2])
+	processDir(dir, true, dateFormats[2], false)
+	r2, _ := processDir(dir, true, dateFormats[2], false)
 	if len(r2.Renamed) != 0 {
 		t.Errorf("second run should not rename, got %v", r2.Renamed)
 	}
@@ -164,9 +164,9 @@ func TestProcessDir_ModelOffAfterOn(t *testing.T) {
 		"2020:01:26 14:30:00", "NIKON D7200")
 
 	// Run 1 with model.
-	processDir(dir, true, dateFormats[2])
+	processDir(dir, true, dateFormats[2], false)
 	// Run 2 without model — prefix must be stripped.
-	r2, _ := processDir(dir, false, dateFormats[2])
+	r2, _ := processDir(dir, false, dateFormats[2], false)
 	if len(r2.Renamed) != 1 {
 		t.Fatalf("expected rename on run2, got %v; skipped=%v", r2.Renamed, r2.Skipped)
 	}
@@ -185,7 +185,7 @@ func TestProcessDir_RepairsDoubleDecoratedName(t *testing.T) {
 		filepath.Join(dir, "NIKOND7200_NIKOND7200_IMG_0003-بهمن-1398-1398-bahman-6-1398-11-06.jpg"),
 		"2020:01:26 14:30:00", "NIKON D7200")
 
-	r, err := processDir(dir, true, dateFormats[2])
+	r, err := processDir(dir, true, dateFormats[2], false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -208,7 +208,7 @@ func TestProcessDir_SkipsNonJPG(t *testing.T) {
 	writeJPEGWithEXIF(t, filepath.Join(dir, "IMG_0001.jpg"),
 		"2020:01:26 14:30:00", "")
 
-	report, err := processDir(dir, false, dateFormats[0])
+	report, err := processDir(dir, false, dateFormats[0], false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -239,7 +239,7 @@ func TestProcessDir_TargetExistsIsSkipped(t *testing.T) {
 	writeJPEGWithEXIF(t, filepath.Join(dir, "IMG_0003-1398-bahman.jpg"),
 		"2020:01:26 14:30:00", "")
 
-	report, err := processDir(dir, false, dateFormats[2]) // year-monthname
+	report, err := processDir(dir, false, dateFormats[2], false) // year-monthname
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -277,7 +277,7 @@ func TestProcessDir_StripsOldNonNormalizedPrefix(t *testing.T) {
 		filepath.Join(dir, "NIKOND7200_IMG_0003-1398-bahman.jpg"),
 		"2020:01:26 14:30:00", "NIKON D7200")
 
-	r, err := processDir(dir, false, dateFormats[2])
+	r, err := processDir(dir, false, dateFormats[2], false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -296,7 +296,7 @@ func TestProcessDir_KeepsSpacedNikonModel(t *testing.T) {
 	writeJPEGWithEXIF(t, filepath.Join(dir, "IMG_0003.jpg"),
 		"2020:01:26 14:30:00", "NIKON D7200")
 
-	r, err := processDir(dir, true, dateFormats[2])
+	r, err := processDir(dir, true, dateFormats[2], false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -307,5 +307,42 @@ func TestProcessDir_KeepsSpacedNikonModel(t *testing.T) {
 	want := "NIKON D7200_IMG_0003-1398-bahman.jpg"
 	if files[0] != want {
 		t.Errorf("got %q, want %q", files[0], want)
+	}
+}
+
+func TestProcessDir_Recursive(t *testing.T) {
+	root := t.TempDir()
+	sub := filepath.Join(root, "2020", "winter")
+	if err := os.MkdirAll(sub, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	writeJPEGWithEXIF(t, filepath.Join(root, "root.jpg"),
+		"2020:01:26 14:30:00", "")
+	writeJPEGWithEXIF(t, filepath.Join(sub, "nested.jpg"),
+		"2020:01:26 14:30:00", "")
+
+	// Non-recursive: only root.jpg should be renamed.
+	r1, err := processDir(root, false, dateFormats[2], false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(r1.Renamed) != 1 {
+		t.Fatalf("non-recursive: expected 1 renamed, got %v", r1.Renamed)
+	}
+	if _, err := os.Stat(filepath.Join(sub, "nested.jpg")); err != nil {
+		t.Errorf("non-recursive: nested.jpg was unexpectedly renamed")
+	}
+
+	// Recursive: nested.jpg should now also be renamed.
+	r2, err := processDir(root, false, dateFormats[2], true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(r2.Renamed) != 1 {
+		t.Fatalf("recursive: expected 1 renamed, got %v; skipped=%v", r2.Renamed, r2.Skipped)
+	}
+	if _, err := os.Stat(filepath.Join(sub, "nested-1398-bahman.jpg")); err != nil {
+		t.Errorf("recursive: nested-1398-bahman.jpg not found: %v", err)
 	}
 }
