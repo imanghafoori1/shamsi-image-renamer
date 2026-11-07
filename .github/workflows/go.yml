@@ -1,0 +1,70 @@
+# This workflow builds and tests the Go project on Windows, then uploads
+# the compiled renamer.exe as a build artifact.
+#
+# Why windows-latest: the GUI library (lxn/walk) is Win32-only, so a Linux
+# or macOS runner cannot build the project.
+
+name: Go
+
+on:
+  push:
+    branches: [ "main" ]
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.27.3'
+          cache: true
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Verify go.mod / go.sum consistency
+        run: go mod verify
+
+      - name: Run tests
+        run: go test ./... -v
+
+      - name: Install rsrc
+        run: go install github.com/akavel/rsrc@latest
+
+      - name: Generate Windows manifest resource
+        run: rsrc -manifest test.manifest -o rsrc.syso
+
+      - name: Build
+        run: go build -ldflags="-H windowsgui" -o jpg-date-renamer.exe
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: renamer-windows
+          path: jpg-date-renamer.exe
+          if-no-files-found: error
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: renamer-windows
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: jpg-date-renamer.exe
+          generate_release_notes: true
