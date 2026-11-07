@@ -38,12 +38,6 @@ var dateFormats = []DateFormat{
 			return fmt.Sprintf("-%s-%d", monthNamePersian(jm), jy)
 		},
 	},
-	{
-		Label: "بهمن  (monthname only, Persian)",
-		Suffix: func(jy int, jm jalaali.Month, jd int) string {
-			return fmt.Sprintf("-%s", monthNamePersian(jm))
-		},
-	},
 }
 
 func monthNameLatin(m jalaali.Month) string {

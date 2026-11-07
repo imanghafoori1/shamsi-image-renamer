@@ -55,7 +55,6 @@ func TestDateFormatSuffixes(t *testing.T) {
 		{1, "-1398-bahman-6"},
 		{2, "-1398-bahman"},
 		{3, "-بهمن-1398"},
-		{4, "-بهمن"},
 	}
 	for _, tt := range tests {
 		got := dateFormats[tt.idx].Suffix(jy, jm, jd)
