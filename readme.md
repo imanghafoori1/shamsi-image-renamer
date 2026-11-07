@@ -3,11 +3,11 @@
 
 # JPG Shamsi Renamer
 
-A tiny Windows desktop tool that renames .jpg / .jpeg files by appending their Shamsi (Jalali) capture date, read from the image's EXIF metadata — and optionally prepending the camera model.
+A tiny portable windows desktop app that renames .jpg files by appending their Shamsi (Jalali) capture date, read from the image's EXIF metadata — and optionally prepending the camera model.
 
 ```
-IMG_0003.jpg â†’ IMG_0003-Ø¨Ù‡Ù…Ù†-1398.jpg
-IMG_0003.jpg â†’ NIKON D7200_IMG_0003-1398-11-06.jpg
+IMG_0003.jpg → IMG_0003-بهمن-1398.jpg
+IMG_0003.jpg → NIKON D7200_IMG_0003-1398-11-06.jpg
 ```
 
 Written in Go with a native Win32 GUI (lxn/walk). No installer, no runtime, no network access. One .exe, a few MB.
@@ -44,7 +44,6 @@ When Prepend camera model is checked:
 | EXIF `Model` | Prefix |
 |---|---|
 | `NIKON D7200` | `NIKON D7200_` (kept verbatim, space preserved) |
-| `NIKOND7200` (no space) | `NIKON_D7200_` |
 | `Canon EOS 5D` | `CanonEOS5D_` |
 | `Canon EOS 5D Mark IV` | `CanonEOS5DMarkIV_` |
 
@@ -59,7 +58,7 @@ Download the latest renamer.exe from the Releases page and double-click it. Noth
 ### From source
 Requires:
 
-- Go 1.24 or newer (download)
+- Go 1.26 or newer (download)
 
 - Windows (the GUI library is Windows-only)
 
@@ -72,7 +71,7 @@ go build -ldflags="-H windowsgui" -o renamer.exe
 
 The -H windowsgui flag suppresses the console window; without it, a black command prompt appears behind the GUI.
 
-One extra step on a fresh clone: the Walk library requires a Windows application manifest to use Common Controls 6, otherwise the window renders with the old, ugly widget style — or fails to appear at all.
+One extra step on a fresh clone: the Walk library requires a Windows application manifest to use Common Controls 6; otherwise, the window renders with the old, ugly widget style — or fails to appear at all.
 
 ```powershell
 go install github.com/akavel/rsrc@latest
@@ -111,7 +110,7 @@ The two list boxes show every change and every skip with its reason.
 | rename failed |	OS-level failure (permission, locked file, etc.). |
 
 ### Safety notes
-Test on a copy first. Copy 3-4 photos into a scratch folder, run the tool, confirm the output names look right. Then point it at your real library.
+Test on a copy first. Copy 3-4 photos into a scratch folder, run the tool, and confirm the output names look right. Then point it at your real library.
 
 Renames are not recorded to a log. The report on screen is the only record. If you want a permanent trace, run the tool once per folder and screenshot the report, or use a version-control tool like git on the photo folder (with large-file storage configured), or keep a checksum manifest with sha256sum before and after.
 
@@ -148,26 +147,6 @@ End-to-end rename, idempotence, format switching, checkbox toggling, collision h
 
 ---
 
-### Project layout
-```
-renamer/
-├── main.go entry point
-├── ui.go window assembly (runUI, uiState)
-├── ui_path.go directory input + Browse button
-├── ui_options.go camera-model checkbox + date-format dropdown
-├── ui_actions.go Rename button + runRename action
-├── ui_report.go summary and result lists
-├── report.go Report type
-├── formats.go date formats and month-name tables
-├── sanitize.go model sanitization + normalization + prefix rule
-├── strip.go stripping previously applied decorations
-├── process.go directory walk, per-file logic, EXIF reading
-├── errors.go sentinel errors
-├── testutil_test.go JPEG+EXIF fixture writer
-├── *_test.go unit and integration tests
-├── test.manifest Win32 manifest required by Walk
-└── rsrc.syso generated from test.manifest (gitignored)
-```
 
 The ui_* files each build one visual row and hold no state of their own — shared widget references live in the uiState struct in ui.go. Everything outside the ui_* files is plain Go with no GUI dependency, which is why the test suite can exercise the entire rename pipeline without a display.
 
