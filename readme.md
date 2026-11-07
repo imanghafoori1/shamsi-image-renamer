@@ -28,7 +28,7 @@ This tool reads DateTimeOriginal directly from EXIF, converts it to the Persian 
 - **Inline report.** After each run, the window shows the count and two scrollable lists: renamed files and skipped files (with the reason for each skip).
 - **No network, no telemetry, no writes outside the chosen folder.**
 
-### Date formats
+## Date formats
 | Dropdown label | Example suffix |
 |---|---|
 | `1398-11-28  (year-month-day)` | `-1398-11-28` |
@@ -36,7 +36,7 @@ This tool reads DateTimeOriginal directly from EXIF, converts it to the Persian 
 | `1398-bahman  (year-monthname)` | `-1398-bahman` |
 | `بهمن-1398  (monthname-year, Persian)` | `-بهمن-1398` |
 | `بهمن  (monthname only, Persian)` | `-بهمن` |
-The first option is the default. Format 1 uses zero-padded month/day so filenames sort correctly.
+The first option is the default. Format 1 uses zero-padded month/day, so filenames sort correctly.
 
 ## Camera model handling
 When Prepend camera model is checked:
@@ -81,6 +81,8 @@ go build -ldflags="-H windowsgui" -o renamer.exe
 
 rsrc.syso is generated from test.manifest and is gitignored. Regenerate it whenever you clean the build directory.
 
+---
+
 ### Usage
 1. Launch renamer.exe.
 
@@ -120,7 +122,10 @@ The tool never deletes or moves files between folders. Everything stays in the f
 
 No network access. The binary makes no outbound connections.
 
+---
+
 ### Building and testing
+
 ```powershell
 
 Run all tests
@@ -135,15 +140,15 @@ go build -ldflags="-H windowsgui" -o renamer.exe
 
 Tests generate their own JPEG+EXIF fixtures at runtime (no binary fixtures committed) and clean up via Go's t.TempDir(). The test suite covers:
 
-All five date formats, byte-for-byte
+- All five date formats, byte-for-byte
 
-Month-name tables (Latin and Persian)
+- Month-name tables (Latin and Persian)
 
-Model sanitization and normalization
+- Model sanitization and normalization
 
-The decoration-stripping logic, including the exact DSC_9340-Ø¨Ù‡Ù…Ù†-1398-1398-bahman-6-â€¦ accumulated-suffix bug
+- The decoration-stripping logic, including the exact DSC_9340-بهمن-1398-1398-bahman-6-… accumulated-suffix bug
 
-End-to-end rename, idempotence, format switching, checkbox toggling, collision handling, and no-EXIF skip paths
+- End-to-end rename, idempotence, format switching, checkbox toggling, collision handling, and no-EXIF skip paths
 
 ---
 
@@ -155,7 +160,7 @@ The ui_* files each build one visual row and hold no state of their own — shar
 ### Limitations
 Windows only. The GUI library (lxn/walk) targets Win32. The non-GUI code (EXIF reading, date conversion, filename logic) is portable, and the CLI-friendly processDir function could be reused in a cross-platform build.
 
-Persian digits are not produced. Suffixes use ASCII digits (1398), not Persian-Indic numerals (Û±Û³Û¹Û¸). This keeps filenames portable across filesystems and searchable from any locale.
+Persian digits are not produced. Suffixes use ASCII digits (1398), not Persian-Indic numerals (۱۳۹۸). This keeps filenames portable across filesystems and searchable from any locale.
 
 EXIF only. If the capture date has been stripped (many social and messaging apps do this), the tool cannot recover it.
 
