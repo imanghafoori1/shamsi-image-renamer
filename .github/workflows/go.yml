@@ -33,8 +33,16 @@ jobs:
       - name: Verify go.mod / go.sum consistency
         run: go mod verify
 
-      - name: Run tests
-        run: go test ./... -v
+      - name: Run tests with coverage
+        run: go test ./... -v -coverprofile=coverage.out -covermode=atomic
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          slug: imanghafoori1/shamsi-image-renamer
+          files: ./coverage.out
+          fail_ci_if_error: false
 
       - name: Install rsrc
         run: go install github.com/akavel/rsrc@latest
