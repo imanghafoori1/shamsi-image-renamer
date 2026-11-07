@@ -49,7 +49,7 @@ func TestProcessDir_BasicRename(t *testing.T) {
 func TestProcessDir_PrependModel(t *testing.T) {
 	dir := t.TempDir()
 	writeJPEGWithEXIF(t, filepath.Join(dir, "IMG_0003.jpg"),
-		"2020:01:26 14:30:00", "Canon EOS 5D")
+		"2020:01:26 14:30:00", "NIKON D7200")
 
 	report, err := processDir(dir, true, dateFormats[2])
 	if err != nil {
@@ -59,7 +59,7 @@ func TestProcessDir_PrependModel(t *testing.T) {
 		t.Fatalf("expected 1 renamed, got %d; skipped=%v", len(report.Renamed), report.Skipped)
 	}
 	files := listDir(t, dir)
-	want := "CanonEOS5D_IMG_0003-1398-bahman.jpg"
+	want := "NIKON D7200_IMG_0003-1398-bahman.jpg"
 	if files[0] != want {
 		t.Errorf("got %q, want %q", files[0], want)
 	}
@@ -152,7 +152,7 @@ func TestProcessDir_ModelPrependIdempotent(t *testing.T) {
 	if len(files) != 1 {
 		t.Fatalf("expected 1 file, got %v", files)
 	}
-	want := "NIKOND7200_IMG_0003-1398-bahman.jpg"
+	want := "NIKON D7200_IMG_0003-1398-bahman.jpg"
 	if files[0] != want {
 		t.Errorf("got %q, want %q", files[0], want)
 	}
@@ -194,7 +194,7 @@ func TestProcessDir_RepairsDoubleDecoratedName(t *testing.T) {
 	}
 
 	files := listDir(t, dir)
-	want := "NIKOND7200_IMG_0003-1398-bahman.jpg"
+	want := "NIKON D7200_IMG_0003-1398-bahman.jpg"
 	if files[0] != want {
 		t.Errorf("got %q, want %q", files[0], want)
 	}
@@ -268,5 +268,44 @@ func TestProcessDir_TargetExistsIsSkipped(t *testing.T) {
 	files := listDir(t, dir)
 	if len(files) != 2 {
 		t.Fatalf("expected 2 files, got %v", files)
+	}
+}
+
+func TestProcessDir_StripsOldNonNormalizedPrefix(t *testing.T) {
+	dir := t.TempDir()
+	writeJPEGWithEXIF(t,
+		filepath.Join(dir, "NIKOND7200_IMG_0003-1398-bahman.jpg"),
+		"2020:01:26 14:30:00", "NIKON D7200")
+
+	r, err := processDir(dir, false, dateFormats[2])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(r.Renamed) != 1 {
+		t.Fatalf("expected 1 renamed, got %v; skipped=%v", r.Renamed, r.Skipped)
+	}
+	files := listDir(t, dir)
+	want := "IMG_0003-1398-bahman.jpg"
+	if files[0] != want {
+		t.Errorf("got %q, want %q", files[0], want)
+	}
+}
+
+func TestProcessDir_KeepsSpacedNikonModel(t *testing.T) {
+	dir := t.TempDir()
+	writeJPEGWithEXIF(t, filepath.Join(dir, "IMG_0003.jpg"),
+		"2020:01:26 14:30:00", "NIKON D7200")
+
+	r, err := processDir(dir, true, dateFormats[2])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(r.Renamed) != 1 {
+		t.Fatalf("expected 1 renamed, got %v; skipped=%v", r.Renamed, r.Skipped)
+	}
+	files := listDir(t, dir)
+	want := "NIKON D7200_IMG_0003-1398-bahman.jpg"
+	if files[0] != want {
+		t.Errorf("got %q, want %q", files[0], want)
 	}
 }
