@@ -12,7 +12,7 @@ func buildOptionsRow(s *uiState) Widget {
 	}
 
 	return Composite{
-		Layout: HBox{},
+		Layout: VBox{},
 		Children: []Widget{
 			CheckBox{
 				AssignTo: &s.prependModelCheck,
@@ -24,15 +24,22 @@ func buildOptionsRow(s *uiState) Widget {
 				Text:     "Include subdirectories",
 				Font:     bodyFont,
 			},
-			HSpacer{},
+			CheckBox{
+				AssignTo: &s.addTagsCheck,
+				Text:     "Add searchable tags",
+				Font:     bodyFont,
+			},
 			Label{Text: "Date format:", Font: bodyFont},
 			ComboBox{
 				AssignTo:     &s.formatCombo,
 				Model:        formatLabels,
 				CurrentIndex: 0,
 				Font:         bodyFont,
-				MinSize:      Size{Width: 340, Height: 28},
+				// Remove MinSize here; let the VBox give it the full width.
 			},
+			HSpacer{},
 		},
+		MaxSize: Size{Width: 340},
+		MinSize: Size{Width: 200},
 	}
 }

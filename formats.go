@@ -12,6 +12,34 @@ type DateFormat struct {
 	Suffix func(jy int, jm jalaali.Month, jd int) string
 }
 
+func seasonNameLatin(m jalaali.Month) string {
+	switch {
+	case m >= 1 && m <= 3:
+		return "spring"
+	case m >= 4 && m <= 6:
+		return "summer"
+	case m >= 7 && m <= 9:
+		return "autumn"
+	case m >= 10 && m <= 12:
+		return "winter"
+	}
+	return ""
+}
+
+func seasonNamePersian(m jalaali.Month) string {
+	switch {
+	case m >= 1 && m <= 3:
+		return "بهار"
+	case m >= 4 && m <= 6:
+		return "تابستان"
+	case m >= 7 && m <= 9:
+		return "پاییز"
+	case m >= 10 && m <= 12:
+		return "زمستان"
+	}
+	return ""
+}
+
 // Formats offered in the GUI. Index 0 is the default.
 var dateFormats = []DateFormat{
 	{
@@ -30,6 +58,18 @@ var dateFormats = []DateFormat{
 		Label: "1398-bahman  (year-monthname)",
 		Suffix: func(jy int, jm jalaali.Month, jd int) string {
 			return fmt.Sprintf("-%d-%s", jy, monthNameLatin(jm))
+		},
+	},
+	{
+		Label: "1398-winter  (year-season, Latin)",
+		Suffix: func(jy int, jm jalaali.Month, jd int) string {
+			return fmt.Sprintf("-%d-%s", jy, seasonNameLatin(jm))
+		},
+	},
+	{
+		Label: "زمستان-1398  (season-year, Persian)",
+		Suffix: func(jy int, jm jalaali.Month, jd int) string {
+			return fmt.Sprintf("-%s-%d", seasonNamePersian(jm), jy)
 		},
 	},
 	{

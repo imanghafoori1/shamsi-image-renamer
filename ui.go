@@ -12,8 +12,8 @@ import (
 var (
 	headerFont = Font{PointSize: 12, Bold: true} // section titles
 	bodyFont   = Font{PointSize: 11}             // labels, inputs, checkbox
-	buttonFont = Font{PointSize: 11, Bold: true} // primary action
-	listFont   = Font{PointSize: 10}             // report text boxes
+	buttonFont = Font{PointSize: 12, Bold: true} // primary action
+	listFont   = Font{PointSize: 11}             // report text boxes
 )
 
 // uiState holds the widget references that must be shared between the
@@ -27,15 +27,30 @@ type uiState struct {
 	prependModelCheck *walk.CheckBox
 	recursiveCheck    *walk.CheckBox
 	formatCombo       *walk.ComboBox
+	addTagsCheck      *walk.CheckBox
+	errorFont         *walk.Font
+	normalFont        *walk.Font
 }
 
 // runUI builds and runs the main window. Blocks until the window closes.
 func runUI() {
 	s := &uiState{}
 
+	var err error
+
+	s.errorFont, err = walk.NewFont("Segoe UI", 12, walk.FontBold)
+	if err != nil {
+		panic(err) // font creation failing at startup is fatal
+	}
+
+	s.normalFont, err = walk.NewFont("Segoe UI", 11, 0)
+	if err != nil {
+		panic(err)
+	}
+
 	MainWindow{
 		Title:   "JPG Shamsi Renamer",
-		MinSize: Size{Width: 820, Height: 760},
+		MinSize: Size{Width: 560, Height: 760},
 		Layout:  VBox{},
 		Children: []Widget{
 			buildPathRow(s),

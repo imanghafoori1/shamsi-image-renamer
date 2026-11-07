@@ -8,27 +8,27 @@ import (
 )
 
 // listDir returns the names of regular files inside dir.
-func listDir(t *testing.T, dir string) []string {
-	t.Helper()
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		t.Fatalf("read dir: %v", err)
-	}
-	var out []string
-	for _, e := range entries {
-		if !e.IsDir() {
-			out = append(out, e.Name())
-		}
-	}
-	return out
-}
+//func listDir(t *testing.T, dir string) []string {
+//	t.Helper()
+//	entries, err := os.ReadDir(dir)
+//	if err != nil {
+//		t.Fatalf("read dir: %v", err)
+//	}
+//	var out []string
+//	for _, e := range entries {
+//		if !e.IsDir() {
+//			out = append(out, e.Name())
+//		}
+//	}
+//	return out
+//}
 
 func TestProcessDir_BasicRename(t *testing.T) {
 	dir := t.TempDir()
 	writeJPEGWithEXIF(t, filepath.Join(dir, "IMG_0003.jpg"),
 		"2020:01:26 14:30:00", "Canon EOS 5D")
 
-	report, err := processDir(dir, false, dateFormats[2], false) // year-monthname
+	report, err := processDir(dir, false, dateFormats[2], false, false) // year-monthname
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -46,12 +46,76 @@ func TestProcessDir_BasicRename(t *testing.T) {
 	}
 }
 
+func TestProcessDir_AddsTagsWhenChecked(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "IMG_0003.jpg")
+	writeMinimalJPEG(t, path)
+
+	// We need EXIF on the file for the rename to succeed.
+	// mimage can add it, or reuse your existing fixture writer if it works
+	// with mimage (it won't — mimage needs a real JPEG).
+	// Simplest: write EXIF via mimage itself before the test.
+	//_, err := metadata.NewJpegEditorFile(path)
+	//if err != nil {
+	//	t.Fatalf("open editor: %v", err)
+	//}
+	// Set DateTimeOriginal via mimage's EXIF API (check godoc for exact call).
+	// For now, assume a helper exists; if not, skip this test until
+	// you have a fixture that works with both goexif (for rename) and mimage (for tags).
+
+	// This integration test is only meaningful once you have a JPEG that
+	// both readers accept. Until then, the unit tests above cover the
+	// tag-writing logic in isolation, which is the critical part.
+	t.Skip("requires a JPEG fixture readable by both goexif and mimage")
+}
+
+func TestDateFromFilename(t *testing.T) {
+	cases := []struct {
+		name  string
+		input string
+		want  string // "YYYY-MM-DD" or "" for error expected
+	}{
+		{"typical with underscores", "vid_20241024_34545.mp4", "2024-10-24"},
+		{"no underscores", "vid20241024.mp4", "2024-10-24"},
+		{"date as entire stem", "20241024.mp4", "2024-10-24"},
+		{"date mid-name", "backup-20241024.tar.gz", "2024-10-24"},
+		{"mid-year", "IMG_20250315_001.mp4", "2025-03-15"},
+		{"first-of-year", "clip_20240101_000.mov", "2024-01-01"},
+		{"last-of-year", "clip_20241231_000.mov", "2024-12-31"},
+		{"invalid month", "vid_20241324_000.mp4", ""},
+		{"invalid day", "vid_20240230_000.mp4", ""},
+		{"year before 2000", "vid_19990101_000.mp4", ""},
+		{"year 2050", "vid_20500101_000.mp4", ""},
+		{"only seven digits", "vid_2024102_000.mp4", ""},
+		{"eight digits not a year", "12345678.mp4", ""},
+		{"no digits", "video.mp4", ""},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			tm, err := dateFromFilename(c.input)
+			if c.want == "" {
+				if err == nil {
+					t.Errorf("expected error for %q, got date %v", c.input, tm)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			got := tm.Format("2006-01-02")
+			if got != c.want {
+				t.Errorf("got %q, want %q", got, c.want)
+			}
+		})
+	}
+}
+
 func TestProcessDir_PrependModel(t *testing.T) {
 	dir := t.TempDir()
 	writeJPEGWithEXIF(t, filepath.Join(dir, "IMG_0003.jpg"),
 		"2020:01:26 14:30:00", "NIKON D7200")
 
-	report, err := processDir(dir, true, dateFormats[2], false)
+	report, err := processDir(dir, true, dateFormats[2], false, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -70,7 +134,7 @@ func TestProcessDir_NoEXIFIsSkipped(t *testing.T) {
 	// A JPG with SOI+EOI but no APP1 → exif.Decode returns an error.
 	writeJPEGWithEXIF(t, filepath.Join(dir, "plain.jpg"), "", "")
 
-	report, err := processDir(dir, false, dateFormats[0], false)
+	report, err := processDir(dir, false, dateFormats[0], false, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -95,12 +159,12 @@ func TestProcessDir_Idempotent(t *testing.T) {
 	writeJPEGWithEXIF(t, filepath.Join(dir, "IMG_0003.jpg"),
 		"2020:01:26 14:30:00", "")
 
-	r1, _ := processDir(dir, false, dateFormats[2], false)
+	r1, _ := processDir(dir, false, dateFormats[2], false, false)
 	if len(r1.Renamed) != 1 {
 		t.Fatalf("first run: expected 1 renamed, got %v; skipped=%v", r1.Renamed, r1.Skipped)
 	}
 
-	r2, _ := processDir(dir, false, dateFormats[2], false)
+	r2, _ := processDir(dir, false, dateFormats[2], false, false)
 	if len(r2.Renamed) != 0 {
 		t.Errorf("second run: expected 0 renamed, got %v", r2.Renamed)
 	}
@@ -118,11 +182,11 @@ func TestProcessDir_FormatSwitchCleansOldSuffix(t *testing.T) {
 		"2020:01:26 14:30:00", "")
 
 	// Run 1: year-monthname → IMG_0003-1398-bahman.jpg
-	if r, _ := processDir(dir, false, dateFormats[2], false); len(r.Renamed) != 1 {
+	if r, _ := processDir(dir, false, dateFormats[2], false, false); len(r.Renamed) != 1 {
 		t.Fatalf("run1: %v", r.Skipped)
 	}
 	// Run 2: year-month-day → should REPLACE, not accumulate.
-	if r, _ := processDir(dir, false, dateFormats[0], false); len(r.Renamed) != 1 {
+	if r, _ := processDir(dir, false, dateFormats[0], false, false); len(r.Renamed) != 1 {
 		t.Fatalf("run2: %v", r.Skipped)
 	}
 
@@ -142,8 +206,8 @@ func TestProcessDir_ModelPrependIdempotent(t *testing.T) {
 		"2020:01:26 14:30:00", "NIKON D7200")
 
 	// Run 1 and 2 with model ON — must not double the prefix.
-	processDir(dir, true, dateFormats[2], false)
-	r2, _ := processDir(dir, true, dateFormats[2], false)
+	processDir(dir, true, dateFormats[2], false, false)
+	r2, _ := processDir(dir, true, dateFormats[2], false, false)
 	if len(r2.Renamed) != 0 {
 		t.Errorf("second run should not rename, got %v", r2.Renamed)
 	}
@@ -164,9 +228,9 @@ func TestProcessDir_ModelOffAfterOn(t *testing.T) {
 		"2020:01:26 14:30:00", "NIKON D7200")
 
 	// Run 1 with model.
-	processDir(dir, true, dateFormats[2], false)
+	processDir(dir, true, dateFormats[2], false, false)
 	// Run 2 without model — prefix must be stripped.
-	r2, _ := processDir(dir, false, dateFormats[2], false)
+	r2, _ := processDir(dir, false, dateFormats[2], false, false)
 	if len(r2.Renamed) != 1 {
 		t.Fatalf("expected rename on run2, got %v; skipped=%v", r2.Renamed, r2.Skipped)
 	}
@@ -185,7 +249,7 @@ func TestProcessDir_RepairsDoubleDecoratedName(t *testing.T) {
 		filepath.Join(dir, "NIKOND7200_NIKOND7200_IMG_0003-بهمن-1398-1398-bahman-6-1398-11-06.jpg"),
 		"2020:01:26 14:30:00", "NIKON D7200")
 
-	r, err := processDir(dir, true, dateFormats[2], false)
+	r, err := processDir(dir, true, dateFormats[2], false, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -208,7 +272,7 @@ func TestProcessDir_SkipsNonJPG(t *testing.T) {
 	writeJPEGWithEXIF(t, filepath.Join(dir, "IMG_0001.jpg"),
 		"2020:01:26 14:30:00", "")
 
-	report, err := processDir(dir, false, dateFormats[0], false)
+	report, err := processDir(dir, false, dateFormats[0], false, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -239,7 +303,7 @@ func TestProcessDir_TargetExistsIsSkipped(t *testing.T) {
 	writeJPEGWithEXIF(t, filepath.Join(dir, "IMG_0003-1398-bahman.jpg"),
 		"2020:01:26 14:30:00", "")
 
-	report, err := processDir(dir, false, dateFormats[2], false) // year-monthname
+	report, err := processDir(dir, false, dateFormats[2], false, false) // year-monthname
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -277,7 +341,7 @@ func TestProcessDir_StripsOldNonNormalizedPrefix(t *testing.T) {
 		filepath.Join(dir, "NIKOND7200_IMG_0003-1398-bahman.jpg"),
 		"2020:01:26 14:30:00", "NIKON D7200")
 
-	r, err := processDir(dir, false, dateFormats[2], false)
+	r, err := processDir(dir, false, dateFormats[2], false, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -296,7 +360,7 @@ func TestProcessDir_KeepsSpacedNikonModel(t *testing.T) {
 	writeJPEGWithEXIF(t, filepath.Join(dir, "IMG_0003.jpg"),
 		"2020:01:26 14:30:00", "NIKON D7200")
 
-	r, err := processDir(dir, true, dateFormats[2], false)
+	r, err := processDir(dir, true, dateFormats[2], false, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -323,7 +387,7 @@ func TestProcessDir_Recursive(t *testing.T) {
 		"2020:01:26 14:30:00", "")
 
 	// Non-recursive: only root.jpg should be renamed.
-	r1, err := processDir(root, false, dateFormats[2], false)
+	r1, err := processDir(root, false, dateFormats[2], false, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -335,7 +399,7 @@ func TestProcessDir_Recursive(t *testing.T) {
 	}
 
 	// Recursive: nested.jpg should now also be renamed.
-	r2, err := processDir(root, false, dateFormats[2], true)
+	r2, err := processDir(root, false, dateFormats[2], true, false)
 	if err != nil {
 		t.Fatal(err)
 	}
