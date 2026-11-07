@@ -3,12 +3,15 @@
 
 # JPG Shamsi Renamer
 
-A tiny portable windows desktop app that renames .jpg files by appending their Shamsi (Jalali) capture date, read from the image's EXIF metadata — and optionally prepending the camera model.
+A tiny portable Windows desktop app that renames .jpg files by appending their Shamsi (Jalali) capture date, read from the image's EXIF metadata — and optionally prepending the camera model.
 
 ```
 IMG_0003.jpg → IMG_0003-بهمن-1398.jpg
 IMG_0003.jpg → NIKON D7200_IMG_0003-1398-11-06.jpg
 ```
+
+[![Go](https://github.com/imanghafoori1/shamsi-image-renamer/actions/workflows/go.yml/badge.svg?branch=main)](https://github.com/imanghafoori1/shamsi-image-renamer/actions/workflows/go.yml)
+[![codecov](https://codecov.io/gh/imanghafoori1/shamsi-image-renamer/branch/main/graph/badge.svg)](https://codecov.io/gh/imanghafoori1/shamsi-image-renamer)
 
 Written in Go with a native Win32 GUI (lxn/walk). No installer, no runtime, no network access. One .exe, a few MB.
 
