@@ -26,14 +26,17 @@ func (r *Report) addSkipped(name, reason string) {
 	r.Skipped = append(r.Skipped, fmt.Sprintf("%s  (%s)", name, reason))
 }
 
+// Bigger font for section labels
+var bigFont = Font{PointSize: 11, Bold: true}
+
 func main() {
 	var dirEdit *walk.LineEdit
 	var statusLabel *walk.Label
 	var summaryLabel *walk.Label
 	var renamedBox *walk.TextEdit
 	var skippedBox *walk.TextEdit
+	var prependModelCheck *walk.CheckBox
 
-	// Helper to refresh the inline report section from a Report value.
 	updateReport := func(r *Report) {
 		summaryLabel.SetText(fmt.Sprintf("Renamed: %d      Skipped: %d",
 			len(r.Renamed), len(r.Skipped)))
@@ -53,10 +56,10 @@ func main() {
 
 	MainWindow{
 		Title:   "JPG Shamsi Renamer",
-		MinSize: Size{Width: 720, Height: 620},
+		MinSize: Size{Width: 720, Height: 640},
 		Layout:  VBox{},
 		Children: []Widget{
-			Label{Text: "Directory Path:"},
+			Label{Text: "Directory Path:", Font: bigFont},
 			Composite{
 				Layout: HBox{},
 				Children: []Widget{
@@ -82,7 +85,11 @@ func main() {
 				},
 			},
 
-			// Prominent centered Rename button
+			CheckBox{
+				AssignTo: &prependModelCheck,
+				Text:     "Prepend camera model to filename",
+			},
+
 			Composite{
 				Layout: HBox{},
 				Children: []Widget{
@@ -98,7 +105,7 @@ func main() {
 								statusLabel.SetText("Please enter a path.")
 								return
 							}
-							report, err := processDir(dir)
+							report, err := processDir(dir, prependModelCheck.Checked())
 							if err != nil {
 								statusLabel.SetText("Error: " + err.Error())
 								return
@@ -112,35 +119,42 @@ func main() {
 				},
 			},
 
-			// Status line
 			Label{AssignTo: &statusLabel, Text: "Ready."},
-
-			// Divider-ish blank line
 			Label{Text: ""},
 
-			// Inline report section
-			Label{AssignTo: &summaryLabel, Text: "Renamed: 0      Skipped: 0", Font: Font{PointSize: 10, Bold: true}},
-			Label{Text: "Renamed files:"},
+			Label{AssignTo: &summaryLabel, Text: "Renamed: 0      Skipped: 0", Font: bigFont},
+			Label{Text: "Renamed files:", Font: bigFont},
 			TextEdit{
 				AssignTo: &renamedBox,
 				ReadOnly: true,
 				VScroll:  true,
 				Text:     "(none)",
-				MinSize:  Size{Height: 160},
+				MinSize:  Size{Height: 150},
 			},
-			Label{Text: "Skipped files:"},
+			Label{Text: "Skipped files:", Font: bigFont},
 			TextEdit{
 				AssignTo: &skippedBox,
 				ReadOnly: true,
 				VScroll:  true,
 				Text:     "(none)",
-				MinSize:  Size{Height: 160},
+				MinSize:  Size{Height: 150},
 			},
 		},
 	}.Run()
 }
 
-func processDir(dir string) (*Report, error) {
+// sanitizeModel removes characters that are unsafe or ugly in filenames.
+func sanitizeModel(s string) string {
+	s = strings.TrimSpace(s)
+	// Remove characters illegal in Windows filenames + whitespace
+	replacer := strings.NewReplacer(
+		"\\", "", "/", "", ":", "", "*", "", "?", "", "\"", "",
+		"<", "", ">", "", "|", "", " ", "", "\t", "", "\r", "", "\n", "",
+	)
+	return replacer.Replace(s)
+}
+
+func processDir(dir string, prependModel bool) (*Report, error) {
 	report := &Report{}
 
 	entries, err := os.ReadDir(dir)
@@ -171,22 +185,36 @@ func processDir(dir string) (*Report, error) {
 			continue
 		}
 
+		// --- Date ---
 		tag, err := x.Get(exif.DateTimeOriginal)
 		if err != nil {
 			report.addSkipped(entry.Name(), "no DateTimeOriginal")
 			continue
 		}
-
 		dateStr, err := tag.StringVal()
 		if err != nil {
 			report.addSkipped(entry.Name(), "unreadable date tag")
 			continue
 		}
-
 		tm, err := time.Parse("2006:01:02 15:04:05", dateStr)
 		if err != nil {
 			report.addSkipped(entry.Name(), "bad date format")
 			continue
+		}
+
+		// --- Camera model (only if requested) ---
+		modelPrefix := ""
+		if prependModel {
+			if modelTag, err := x.Get(exif.Model); err == nil {
+				if modelStr, err := modelTag.StringVal(); err == nil {
+					clean := sanitizeModel(modelStr)
+					if clean != "" {
+						modelPrefix = clean + "_"
+					}
+				}
+			}
+			// If model tag missing, silently continue without prefix.
+			// The file still gets renamed with its date suffix.
 		}
 
 		jy, jm, _, _ := jalaali.ToJalaali(tm.Year(), tm.Month(), tm.Day())
@@ -196,12 +224,16 @@ func processDir(dir string) (*Report, error) {
 		fileExt := filepath.Ext(entry.Name())
 		nameWithoutExt := strings.TrimSuffix(entry.Name(), fileExt)
 
-		if strings.HasSuffix(nameWithoutExt, suffix) {
+		// Already renamed check must account for the optional prefix.
+		alreadyHasSuffix := strings.HasSuffix(nameWithoutExt, suffix)
+		alreadyHasPrefix := modelPrefix == "" || strings.HasPrefix(nameWithoutExt, modelPrefix)
+
+		if alreadyHasSuffix && alreadyHasPrefix {
 			report.addSkipped(entry.Name(), "already renamed")
 			continue
 		}
 
-		newName := nameWithoutExt + suffix + fileExt
+		newName := modelPrefix + nameWithoutExt + suffix + fileExt
 		newPath := filepath.Join(dir, newName)
 
 		if _, err := os.Stat(newPath); err == nil {
