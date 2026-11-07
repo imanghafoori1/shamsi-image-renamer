@@ -13,10 +13,9 @@ import (
 	"github.com/rwcarlsen/goexif/exif"
 )
 
-// Report holds the outcome of a rename run.
 type Report struct {
-	Renamed []string // "old -> new"
-	Skipped []string // "filename: reason"
+	Renamed []string
+	Skipped []string
 }
 
 func (r *Report) addRenamed(oldName, newName string) {
@@ -30,10 +29,31 @@ func (r *Report) addSkipped(name, reason string) {
 func main() {
 	var dirEdit *walk.LineEdit
 	var statusLabel *walk.Label
+	var summaryLabel *walk.Label
+	var renamedBox *walk.TextEdit
+	var skippedBox *walk.TextEdit
+
+	// Helper to refresh the inline report section from a Report value.
+	updateReport := func(r *Report) {
+		summaryLabel.SetText(fmt.Sprintf("Renamed: %d      Skipped: %d",
+			len(r.Renamed), len(r.Skipped)))
+
+		if len(r.Renamed) == 0 {
+			renamedBox.SetText("(none)")
+		} else {
+			renamedBox.SetText(strings.Join(r.Renamed, "\r\n"))
+		}
+
+		if len(r.Skipped) == 0 {
+			skippedBox.SetText("(none)")
+		} else {
+			skippedBox.SetText(strings.Join(r.Skipped, "\r\n"))
+		}
+	}
 
 	MainWindow{
 		Title:   "JPG Shamsi Renamer",
-		MinSize: Size{Width: 560, Height: 200},
+		MinSize: Size{Width: 720, Height: 620},
 		Layout:  VBox{},
 		Children: []Widget{
 			Label{Text: "Directory Path:"},
@@ -42,7 +62,8 @@ func main() {
 				Children: []Widget{
 					LineEdit{AssignTo: &dirEdit},
 					PushButton{
-						Text: "Browse...",
+						Text:    "Browse...",
+						MinSize: Size{Width: 90},
 						OnClicked: func() {
 							dlg := new(walk.FileDialog)
 							dlg.Title = "Select Directory"
@@ -60,28 +81,65 @@ func main() {
 					},
 				},
 			},
-			PushButton{
-				Text: "Rename Files",
-				OnClicked: func() {
-					dir := dirEdit.Text()
-					if dir == "" {
-						statusLabel.SetText("Please enter a path.")
-						return
-					}
-					report, err := processDir(dir)
-					if err != nil {
-						statusLabel.SetText("Error: " + err.Error())
-						return
-					}
-					statusLabel.SetText(fmt.Sprintf("Done. Renamed %d, skipped %d.",
-						len(report.Renamed), len(report.Skipped)))
-					showReport(report)
+
+			// Prominent centered Rename button
+			Composite{
+				Layout: HBox{},
+				Children: []Widget{
+					HSpacer{},
+					PushButton{
+						Text:      "Rename Files",
+						MinSize:   Size{Width: 180, Height: 36},
+						MaxSize:   Size{Width: 180, Height: 36},
+						Font:      Font{PointSize: 11, Bold: true},
+						OnClicked: func() {
+							dir := dirEdit.Text()
+							if dir == "" {
+								statusLabel.SetText("Please enter a path.")
+								return
+							}
+							report, err := processDir(dir)
+							if err != nil {
+								statusLabel.SetText("Error: " + err.Error())
+								return
+							}
+							updateReport(report)
+							statusLabel.SetText(fmt.Sprintf("Done. Renamed %d, skipped %d.",
+								len(report.Renamed), len(report.Skipped)))
+						},
+					},
+					HSpacer{},
 				},
 			},
+
+			// Status line
 			Label{AssignTo: &statusLabel, Text: "Ready."},
+
+			// Divider-ish blank line
+			Label{Text: ""},
+
+			// Inline report section
+			Label{AssignTo: &summaryLabel, Text: "Renamed: 0      Skipped: 0", Font: Font{PointSize: 10, Bold: true}},
+			Label{Text: "Renamed files:"},
+			TextEdit{
+				AssignTo: &renamedBox,
+				ReadOnly: true,
+				VScroll:  true,
+				Text:     "(none)",
+				MinSize:  Size{Height: 160},
+			},
+			Label{Text: "Skipped files:"},
+			TextEdit{
+				AssignTo: &skippedBox,
+				ReadOnly: true,
+				VScroll:  true,
+				Text:     "(none)",
+				MinSize:  Size{Height: 160},
+			},
 		},
 	}.Run()
 }
+
 func processDir(dir string) (*Report, error) {
 	report := &Report{}
 
@@ -138,7 +196,6 @@ func processDir(dir string) (*Report, error) {
 		fileExt := filepath.Ext(entry.Name())
 		nameWithoutExt := strings.TrimSuffix(entry.Name(), fileExt)
 
-		// Already carries exactly this suffix -> leave it alone.
 		if strings.HasSuffix(nameWithoutExt, suffix) {
 			report.addSkipped(entry.Name(), "already renamed")
 			continue
@@ -159,53 +216,6 @@ func processDir(dir string) (*Report, error) {
 		report.addRenamed(entry.Name(), newName)
 	}
 	return report, nil
-}
-// showReport opens a modal window listing what was renamed and what was skipped.
-func showReport(r *Report) {
-	var w *walk.MainWindow
-
-	summary := fmt.Sprintf("Renamed: %d    Skipped: %d", len(r.Renamed), len(r.Skipped))
-
-	renamedText := strings.Join(r.Renamed, "\r\n")
-	if renamedText == "" {
-		renamedText = "(none)"
-	}
-	skippedText := strings.Join(r.Skipped, "\r\n")
-	if skippedText == "" {
-		skippedText = "(none)"
-	}
-
-	MainWindow{
-		AssignTo: &w,
-		Title:    "Rename Report",
-		MinSize:  Size{Width: 720, Height: 520},
-		Layout:   VBox{},
-		Children: []Widget{
-			Label{Text: summary},
-			Label{Text: "Renamed files:"},
-			TextEdit{
-				ReadOnly: true,
-				Text:     renamedText,
-				VScroll:  true,
-				MinSize:  Size{Height: 180},
-			},
-			Label{Text: "Skipped files:"},
-			TextEdit{
-				ReadOnly: true,
-				Text:     skippedText,
-				VScroll:  true,
-				MinSize:  Size{Height: 180},
-			},
-			PushButton{
-				Text: "Close",
-				OnClicked: func() {
-					w.Close()
-				},
-			},
-		},
-	}.Create()
-
-	w.Run()
 }
 
 func getPersianMonth(m jalaali.Month) string {
