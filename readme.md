@@ -1,3 +1,6 @@
+<img width="804" height="751" alt="image" src="https://github.com/user-attachments/assets/63762aa0-d801-468d-be6c-fd607d77140d" />
+
+
 # JPG Shamsi Renamer
 
 A tiny Windows desktop tool that renames .jpg / .jpeg files by appending their Shamsi (Jalali) capture date, read from the image's EXIF metadata — and optionally prepending the camera model.
