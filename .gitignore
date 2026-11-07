@@ -1,0 +1,42 @@
+# --- Go build artifacts ---
+/renamer.exe
+/renamer_new.exe
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary produced by `go test -c`
+*.test
+
+# Coverage / profiling output
+*.out
+coverage.txt
+coverage.html
+
+# --- Go workspace / module cache (if ever vendored locally) ---
+/vendor/
+
+# --- Windows resource compiler output ---
+# rsrc.syso is generated from test.manifest by `rsrc`.
+# If you want a reproducible build, uncomment the next line
+# to commit it. Otherwise leave it ignored.
+rsrc.syso
+
+# --- Editor / IDE ---
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# --- OS noise ---
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# --- Local scratch / test output ---
+/tmp/
+/scratch/
+*.log
