@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/rwcarlsen/goexif/exif"
 )
 
+// Report holds the outcome of a rename run.
 type Report struct {
 	Renamed []string
 	Skipped []string
@@ -30,11 +32,11 @@ var bigFont = Font{PointSize: 11, Bold: true}
 
 // DateFormat describes one selectable suffix style.
 type DateFormat struct {
-	Label  string // shown in the ComboBox
+	Label  string
 	Suffix func(jy int, jm jalaali.Month, jd int) string
 }
 
-// Formats offered in the GUI. Order matters: index 0 is default.
+// Formats offered in the GUI. Index 0 is the default.
 var dateFormats = []DateFormat{
 	{
 		Label: "1398-11-28  (year-month-day)",
@@ -94,7 +96,6 @@ func main() {
 		}
 	}
 
-	// Build the list of format labels for the ComboBox
 	formatLabels := make([]string, len(dateFormats))
 	for i, f := range dateFormats {
 		formatLabels[i] = f.Label
@@ -131,7 +132,6 @@ func main() {
 				},
 			},
 
-			// Options row: model checkbox + date format combobox
 			Composite{
 				Layout: HBox{},
 				Children: []Widget{
@@ -207,6 +207,7 @@ func main() {
 	}.Run()
 }
 
+// sanitizeModel removes characters that are unsafe or ugly in filenames.
 func sanitizeModel(s string) string {
 	s = strings.TrimSpace(s)
 	replacer := strings.NewReplacer(
@@ -214,6 +215,54 @@ func sanitizeModel(s string) string {
 		"<", "", ">", "", "|", "", " ", "", "\t", "", "\r", "", "\n", "",
 	)
 	return replacer.Replace(s)
+}
+
+// stripKnownDecorations removes decoration strings that are known to be
+// associated with this file, based on its immutable EXIF metadata.
+//
+// prefixesToStrip: every model-prefix spelling a previous run could have used
+// suffixesToStrip: every date-suffix spelling a previous run could have used
+//                  (all supported formats, for this file's exact date)
+//
+// Both are stripped repeatedly from the respective ends, so historical
+// double-appends collapse back to the original stem. Longest suffix first,
+// so "-1398-bahman-6" wins over "-1398-bahman".
+func stripKnownDecorations(stem string, prefixesToStrip, suffixesToStrip []string) string {
+	// Strip any known prefix, in a loop.
+	for {
+		changed := false
+		for _, p := range prefixesToStrip {
+			if p != "" && strings.HasPrefix(stem, p) {
+				stem = strings.TrimPrefix(stem, p)
+				changed = true
+			}
+		}
+		if !changed {
+			break
+		}
+	}
+
+	// Sort suffixes longest-first so overlaps are handled correctly.
+	sortedSuffixes := append([]string(nil), suffixesToStrip...)
+	sort.Slice(sortedSuffixes, func(i, j int) bool {
+		return len(sortedSuffixes[i]) > len(sortedSuffixes[j])
+	})
+
+	for {
+		changed := false
+		for _, s := range sortedSuffixes {
+			if s != "" && strings.HasSuffix(stem, s) {
+				stem = strings.TrimSuffix(stem, s)
+				changed = true
+				break // restart scan with longest suffix
+			}
+		}
+		if !changed {
+			break
+		}
+	}
+
+	return stem
 }
 
 func processDir(dir string, prependModel bool, format DateFormat) (*Report, error) {
@@ -247,6 +296,7 @@ func processDir(dir string, prependModel bool, format DateFormat) (*Report, erro
 			continue
 		}
 
+		// --- Immutable metadata: date taken ---
 		tag, err := x.Get(exif.DateTimeOriginal)
 		if err != nil {
 			report.addSkipped(entry.Name(), "no DateTimeOriginal")
@@ -263,34 +313,56 @@ func processDir(dir string, prependModel bool, format DateFormat) (*Report, erro
 			continue
 		}
 
-		modelPrefix := ""
-		if prependModel {
-			if modelTag, err := x.Get(exif.Model); err == nil {
-				if modelStr, err := modelTag.StringVal(); err == nil {
-					clean := sanitizeModel(modelStr)
-					if clean != "" {
-						modelPrefix = clean + "_"
-					}
-				}
+		// --- Immutable metadata: camera model (raw + sanitized) ---
+		rawModel := ""
+		cleanModel := ""
+		if modelTag, err := x.Get(exif.Model); err == nil {
+			if modelStr, err := modelTag.StringVal(); err == nil {
+				rawModel = strings.TrimSpace(modelStr)
+				cleanModel = sanitizeModel(modelStr)
 			}
 		}
 
+		canonicalPrefix := ""
+		if prependModel && cleanModel != "" {
+			canonicalPrefix = cleanModel + "_"
+		}
+
 		jy, jm, jd, _ := jalaali.ToJalaali(tm.Year(), tm.Month(), tm.Day())
-		suffix := format.Suffix(jy, jm, jd)
+		canonicalSuffix := format.Suffix(jy, jm, jd)
 
 		fileExt := filepath.Ext(entry.Name())
-		nameWithoutExt := strings.TrimSuffix(entry.Name(), fileExt)
+		stem := strings.TrimSuffix(entry.Name(), fileExt)
 
-		alreadyHasSuffix := strings.HasSuffix(nameWithoutExt, suffix)
-		alreadyHasPrefix := modelPrefix == "" || strings.HasPrefix(nameWithoutExt, modelPrefix)
+		// --- Prefixes a previous run could have prepended for THIS file ---
+		var prefixesToStrip []string
+		if cleanModel != "" {
+			prefixesToStrip = append(prefixesToStrip, cleanModel+"_")
+		}
+		if rawModel != "" && rawModel != cleanModel {
+			prefixesToStrip = append(prefixesToStrip, rawModel+"_")
+		}
 
-		if alreadyHasSuffix && alreadyHasPrefix {
-			report.addSkipped(entry.Name(), "already renamed")
+		// --- All suffix spellings for THIS file's date, across every format ---
+		var suffixesToStrip []string
+		for _, f := range dateFormats {
+			suffixesToStrip = append(suffixesToStrip, f.Suffix(jy, jm, jd))
+		}
+
+		stem = stripKnownDecorations(stem, prefixesToStrip, suffixesToStrip)
+
+		if stem == "" {
+			report.addSkipped(entry.Name(), "would become empty name")
 			continue
 		}
 
-		newName := modelPrefix + nameWithoutExt + suffix + fileExt
+		newName := canonicalPrefix + stem + canonicalSuffix + fileExt
 		newPath := filepath.Join(dir, newName)
+
+		if newName == entry.Name() {
+			report.addSkipped(entry.Name(), "already renamed")
+			continue
+		}
 
 		if _, err := os.Stat(newPath); err == nil {
 			report.addSkipped(entry.Name(), "target already exists")
@@ -306,7 +378,6 @@ func processDir(dir string, prependModel bool, format DateFormat) (*Report, erro
 	return report, nil
 }
 
-// Latin (transliterated) month names, useful in filenames.
 func monthNameLatin(m jalaali.Month) string {
 	months := []string{
 		"farvardin", "ordibehesht", "khordad", "tir", "mordad", "shahrivar",
@@ -318,7 +389,6 @@ func monthNameLatin(m jalaali.Month) string {
 	return ""
 }
 
-// Persian month names.
 func monthNamePersian(m jalaali.Month) string {
 	months := []string{
 		"فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور",
