@@ -18,14 +18,16 @@ func buildOptionsRow(s *uiState) Widget {
 			CheckBox{
 				AssignTo: &s.prependModelCheck,
 				Text:     "Prepend camera model",
+				Font:     bodyFont,
 			},
 			HSpacer{},
-			Label{Text: "Date format:"},
+			Label{Text: "Date format:", Font: bodyFont},
 			ComboBox{
 				AssignTo:     &s.formatCombo,
 				Model:        formatLabels,
 				CurrentIndex: 0,
-				MinSize:      Size{Width: 300},
+				Font:         bodyFont,
+				MinSize:      Size{Width: 340, Height: 28},
 			},
 		},
 	}

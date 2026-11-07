@@ -14,9 +14,9 @@ func buildActionsRow(s *uiState) Widget {
 			HSpacer{},
 			PushButton{
 				Text:      "Rename Files",
-				MinSize:   Size{Width: 180, Height: 36},
-				MaxSize:   Size{Width: 180, Height: 36},
-				Font:      Font{PointSize: 11, Bold: true},
+				MinSize:   Size{Width: 200, Height: 42},
+				MaxSize:   Size{Width: 200, Height: 42},
+				Font:      buttonFont,
 				OnClicked: func() {
 					runRename(s)
 				},

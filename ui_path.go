@@ -11,14 +11,19 @@ func buildPathRow(s *uiState) Widget {
 	return Composite{
 		Layout: VBox{},
 		Children: []Widget{
-			Label{Text: "Directory Path:", Font: bigFont},
+			Label{Text: "Directory Path:", Font: headerFont},
 			Composite{
 				Layout: HBox{},
 				Children: []Widget{
-					LineEdit{AssignTo: &s.dirEdit},
+					LineEdit{
+						AssignTo: &s.dirEdit,
+						Font:     bodyFont,
+						MinSize:  Size{Height: 30},
+					},
 					PushButton{
 						Text:    "Browse...",
-						MinSize: Size{Width: 90},
+						Font:    bodyFont,
+						MinSize: Size{Width: 100, Height: 30},
 						OnClicked: func() {
 							dlg := new(walk.FileDialog)
 							dlg.Title = "Select Directory"

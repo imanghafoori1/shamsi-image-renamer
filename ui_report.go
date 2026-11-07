@@ -10,22 +10,28 @@ func buildReportSection(s *uiState) Widget {
 	return Composite{
 		Layout: VBox{},
 		Children: []Widget{
-			Label{AssignTo: &s.summaryLabel, Text: "Renamed: 0      Skipped: 0", Font: bigFont},
-			Label{Text: "Renamed files:", Font: bigFont},
+			Label{
+				AssignTo: &s.summaryLabel,
+				Text:     "Renamed: 0      Skipped: 0",
+				Font:     headerFont,
+			},
+			Label{Text: "Renamed files:", Font: headerFont},
 			TextEdit{
 				AssignTo: &s.renamedBox,
 				ReadOnly: true,
 				VScroll:  true,
 				Text:     "(none)",
-				MinSize:  Size{Height: 150},
+				Font:     listFont,
+				MinSize:  Size{Height: 170},
 			},
-			Label{Text: "Skipped files:", Font: bigFont},
+			Label{Text: "Skipped files:", Font: headerFont},
 			TextEdit{
 				AssignTo: &s.skippedBox,
 				ReadOnly: true,
 				VScroll:  true,
 				Text:     "(none)",
-				MinSize:  Size{Height: 150},
+				Font:     listFont,
+				MinSize:  Size{Height: 170},
 			},
 		},
 	}

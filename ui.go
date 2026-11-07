@@ -8,18 +8,24 @@ import (
 	. "github.com/lxn/walk/declarative"
 )
 
-var bigFont = Font{PointSize: 11, Bold: true}
+// Font presets. Adjust PointSize here to scale the whole UI.
+var (
+	headerFont = Font{PointSize: 12, Bold: true} // section titles
+	bodyFont   = Font{PointSize: 11}             // labels, inputs, checkbox
+	buttonFont = Font{PointSize: 11, Bold: true} // primary action
+	listFont   = Font{PointSize: 10}             // report text boxes
+)
 
 // uiState holds the widget references that must be shared between the
 // builders and their event callbacks.
 type uiState struct {
-	dirEdit            *walk.LineEdit
-	statusLabel        *walk.Label
-	summaryLabel       *walk.Label
-	renamedBox         *walk.TextEdit
-	skippedBox         *walk.TextEdit
-	prependModelCheck  *walk.CheckBox
-	formatCombo        *walk.ComboBox
+	dirEdit           *walk.LineEdit
+	statusLabel       *walk.Label
+	summaryLabel      *walk.Label
+	renamedBox        *walk.TextEdit
+	skippedBox        *walk.TextEdit
+	prependModelCheck *walk.CheckBox
+	formatCombo       *walk.ComboBox
 }
 
 // runUI builds and runs the main window. Blocks until the window closes.
@@ -28,13 +34,13 @@ func runUI() {
 
 	MainWindow{
 		Title:   "JPG Shamsi Renamer",
-		MinSize: Size{Width: 760, Height: 700},
+		MinSize: Size{Width: 820, Height: 760},
 		Layout:  VBox{},
 		Children: []Widget{
 			buildPathRow(s),
 			buildOptionsRow(s),
 			buildActionsRow(s),
-			Label{AssignTo: &s.statusLabel, Text: "Ready."},
+			Label{AssignTo: &s.statusLabel, Text: "Ready.", Font: bodyFont},
 			Label{Text: ""},
 			buildReportSection(s),
 		},
