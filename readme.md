@@ -1,4 +1,5 @@
-<img width="514" height="500" alt="image" src="https://github.com/user-attachments/assets/96c3f7ba-01f9-42e9-b94f-f382ad645408" />
+<img width="500" height="705" alt="image" src="https://github.com/user-attachments/assets/fdc0e019-897f-4bde-a4be-889fa0dceccc" />
+
 
 
 # JPG Shamsi Renamer
