@@ -12,7 +12,7 @@ func buildReportSection(s *uiState) Widget {
 		Children: []Widget{
 			Label{
 				AssignTo: &s.summaryLabel,
-				Text:     "Renamed: 0      Skipped: 0",
+				Text:     "Renamed: 0      Skipped: 0      Tagged: 0",
 				Font:     headerFont,
 			},
 			Label{Text: "Renamed files:", Font: headerFont},
@@ -22,8 +22,10 @@ func buildReportSection(s *uiState) Widget {
 				VScroll:  true,
 				Text:     "(none)",
 				Font:     listFont,
-				MinSize:  Size{Height: 170},
+				MinSize:  Size{Height: 130},
 			},
+			Label{Text: "Tagged files:", Font: headerFont},
+			TextEdit{AssignTo: &s.taggedBox, ReadOnly: true, VScroll: true, Text: "(none)", Font: listFont, MinSize: Size{Height: 130}},
 			Label{Text: "Skipped files:", Font: headerFont},
 			TextEdit{
 				AssignTo: &s.skippedBox,
@@ -31,7 +33,7 @@ func buildReportSection(s *uiState) Widget {
 				VScroll:  true,
 				Text:     "(none)",
 				Font:     listFont,
-				MinSize:  Size{Height: 170},
+				MinSize:  Size{Height: 130},
 			},
 		},
 	}

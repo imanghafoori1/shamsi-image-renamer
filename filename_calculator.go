@@ -5,7 +5,13 @@ import (
 )
 
 func modelToPrefix(s string) string {
-	return strings.TrimSpace(s) + "_"
+	s = strings.TrimSpace(s)
+
+	if s == "" {
+		return ""
+	}
+
+	return s + "_"
 }
 
 // buildPrefixStripSet returns every model-prefix spelling a previous run

@@ -141,11 +141,11 @@ func TestProcessDir_NoEXIFIsSkipped(t *testing.T) {
 	if len(report.Renamed) != 0 {
 		t.Errorf("expected 0 renamed, got %v", report.Renamed)
 	}
+	if !strings.Contains(report.Skipped[0], "no EXIF data") {
+		t.Errorf("skip reason = %q, want 'no EXIF data'", report.Skipped[0])
+	}
 	if len(report.Skipped) != 1 {
 		t.Fatalf("expected 1 skipped, got %v", report.Skipped)
-	}
-	if !strings.Contains(report.Skipped[0], "no DateTimeOriginal") {
-		t.Errorf("skip reason = %q, want 'no DateTimeOriginal'", report.Skipped[0])
 	}
 
 	files := listDir(t, dir)
@@ -222,23 +222,28 @@ func TestProcessDir_ModelPrependIdempotent(t *testing.T) {
 	}
 }
 
-func TestProcessDir_ModelOffAfterOn(t *testing.T) {
+func TestProcessDir_ModelOffKeepsPrefix(t *testing.T) {
 	dir := t.TempDir()
 	writeJPEGWithEXIF(t, filepath.Join(dir, "IMG_0003.jpg"),
 		"2020:01:26 14:30:00", "NIKON D7200")
 
-	// Run 1 with model.
-	processDir(dir, true, dateFormats[2], false, false)
-	// Run 2 without model — prefix must be stripped.
+	// First run with prefix on.
+	r1, _ := processDir(dir, true, dateFormats[2], false, false)
+	if len(r1.Renamed) != 1 {
+		t.Fatalf("run1: expected 1 renamed, got %v; skipped=%v", r1.Renamed, r1.Skipped)
+	}
+
+	// Second run with prefix off. The existing prefix must be preserved,
+	// so the file is already in its target state — no rename.
 	r2, _ := processDir(dir, false, dateFormats[2], false, false)
-	if len(r2.Renamed) != 1 {
-		t.Fatalf("expected rename on run2, got %v; skipped=%v", r2.Renamed, r2.Skipped)
+	if len(r2.Renamed) != 0 {
+		t.Errorf("run2: expected 0 renamed (prefix preserved), got %v", r2.Renamed)
 	}
 
 	files := listDir(t, dir)
-	want := "IMG_0003-1398-bahman.jpg"
+	want := "NIKON D7200_IMG_0003-1398-bahman.jpg"
 	if files[0] != want {
-		t.Errorf("got %q, want %q", files[0], want)
+		t.Errorf("got %q, want %q (prefix must be preserved)", files[0], want)
 	}
 }
 
@@ -335,26 +340,6 @@ func TestProcessDir_TargetExistsIsSkipped(t *testing.T) {
 	}
 }
 
-func TestProcessDir_StripsOldNonNormalizedPrefix(t *testing.T) {
-	dir := t.TempDir()
-	writeJPEGWithEXIF(t,
-		filepath.Join(dir, "NIKON D7200_IMG_0003-1398-bahman.jpg"),
-		"2020:01:26 14:30:00", "NIKON D7200")
-
-	r, err := processDir(dir, false, dateFormats[2], false, false)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(r.Renamed) != 1 {
-		t.Fatalf("expected 1 renamed, got %v; skipped=%v", r.Renamed, r.Skipped)
-	}
-	files := listDir(t, dir)
-	want := "IMG_0003-1398-bahman.jpg"
-	if files[0] != want {
-		t.Errorf("got %q, want %q", files[0], want)
-	}
-}
-
 func TestProcessDir_KeepsSpacedNikonModel(t *testing.T) {
 	dir := t.TempDir()
 	writeJPEGWithEXIF(t, filepath.Join(dir, "IMG_0003.jpg"),
@@ -408,5 +393,147 @@ func TestProcessDir_Recursive(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(sub, "nested-1398-bahman.jpg")); err != nil {
 		t.Errorf("recursive: nested-1398-bahman.jpg not found: %v", err)
+	}
+}
+
+func TestRemoveDateSuffixes_JPEG(t *testing.T) {
+	dir := t.TempDir()
+	writeJPEGWithEXIF(t,
+		filepath.Join(dir, "IMG_0003-1398-bahman.jpg"),
+		"2020:01:26 14:30:00", "NIKON D7200")
+
+	r, err := removeDateSuffixes(dir, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(r.Renamed) != 1 {
+		t.Fatalf("expected 1 renamed, got %v; skipped=%v", r.Renamed, r.Skipped)
+	}
+	files := listDir(t, dir)
+	if files[0] != "IMG_0003.jpg" {
+		t.Errorf("got %q, want IMG_0003.jpg", files[0])
+	}
+}
+
+func TestRemoveDateSuffixes_VideoFilenameDate(t *testing.T) {
+	dir := t.TempDir()
+
+	// A video whose name carries the original date fragment AND a Jalali
+	// date suffix that a previous run appended. There is no metadata in
+	// the file — the removal must work entirely from the filename date.
+	if err := os.WriteFile(
+		filepath.Join(dir, "vid_20241024_34545-1403-aban.mp4"),
+		[]byte{0x00}, 0644,
+	); err != nil {
+		t.Fatal(err)
+	}
+
+	r, err := removeDateSuffixes(dir, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(r.Renamed) != 1 {
+		t.Fatalf("expected 1 renamed, got %v; skipped=%v", r.Renamed, r.Skipped)
+	}
+	files := listDir(t, dir)
+	want := "vid_20241024_34545.mp4"
+	if files[0] != want {
+		t.Errorf("got %q, want %q", files[0], want)
+	}
+}
+
+func TestRemoveDateSuffixes_VideoNoDateAnywhere(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(
+		filepath.Join(dir, "random.mp4"), []byte{0x00}, 0644,
+	); err != nil {
+		t.Fatal(err)
+	}
+
+	r, err := removeDateSuffixes(dir, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(r.Renamed) != 0 {
+		t.Errorf("expected 0 renamed, got %v", r.Renamed)
+	}
+	if len(r.Skipped) != 1 {
+		t.Fatalf("expected 1 skipped, got %v", r.Skipped)
+	}
+	// The file has no metadata AND no filename date.
+	// Either "no DateTimeOriginal" or "no EXIF data" is acceptable.
+	if !strings.Contains(r.Skipped[0], "Date") && !strings.Contains(r.Skipped[0], "EXIF") {
+		t.Errorf("unexpected skip reason: %q", r.Skipped[0])
+	}
+}
+
+func TestRemoveModelPrefixes(t *testing.T) {
+	dir := t.TempDir()
+	writeJPEGWithEXIF(t,
+		filepath.Join(dir, "NIKON D7200_IMG_0003-1398-bahman.jpg"),
+		"2020:01:26 14:30:00", "NIKON D7200")
+
+	r, err := removeModelPrefixes(dir, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(r.Renamed) != 1 {
+		t.Fatalf("expected 1 renamed, got %v; skipped=%v", r.Renamed, r.Skipped)
+	}
+	files := listDir(t, dir)
+	want := "IMG_0003-1398-bahman.jpg"
+	if files[0] != want {
+		t.Errorf("got %q, want %q", files[0], want)
+	}
+}
+
+func TestRemoveDecorations_NothingToRemove(t *testing.T) {
+	dir := t.TempDir()
+	writeJPEGWithEXIF(t,
+		filepath.Join(dir, "IMG_0003.jpg"),
+		"2020:01:26 14:30:00", "NIKON D7200")
+
+	r, err := removeDateSuffixes(dir, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(r.Renamed) != 0 {
+		t.Errorf("expected 0 renamed, got %v", r.Renamed)
+	}
+	if len(r.Skipped) != 1 || !strings.Contains(r.Skipped[0], "nothing to remove") {
+		t.Errorf("expected 'nothing to remove' skip, got %v", r.Skipped)
+	}
+}
+
+func TestRemoveDecorations_Recursive(t *testing.T) {
+	root := t.TempDir()
+	sub := filepath.Join(root, "sub")
+	if err := os.MkdirAll(sub, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	writeJPEGWithEXIF(t,
+		filepath.Join(root, "A-1398-bahman.jpg"),
+		"2020:01:26 14:30:00", "")
+	writeJPEGWithEXIF(t,
+		filepath.Join(sub, "B-1398-bahman.jpg"),
+		"2020:01:26 14:30:00", "")
+
+	// Non-recursive: only the root file is touched.
+	r1, _ := removeDateSuffixes(root, false)
+	if len(r1.Renamed) != 1 {
+		t.Fatalf("non-recursive: expected 1 renamed, got %v", r1.Renamed)
+	}
+	if _, err := os.Stat(filepath.Join(sub, "B-1398-bahman.jpg")); err != nil {
+		t.Errorf("non-recursive: sub file should be untouched")
+	}
+
+	// Recursive: sub file is now touched too.
+	r2, _ := removeDateSuffixes(root, true)
+	if len(r2.Renamed) != 1 {
+		t.Fatalf("recursive: expected 1 renamed, got %v", r2.Renamed)
+	}
+	if _, err := os.Stat(filepath.Join(sub, "B.jpg")); err != nil {
+		t.Errorf("recursive: sub file was not renamed: %v", err)
 	}
 }

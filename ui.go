@@ -24,6 +24,7 @@ type uiState struct {
 	summaryLabel      *walk.Label
 	renamedBox        *walk.TextEdit
 	skippedBox        *walk.TextEdit
+	taggedBox         *walk.TextEdit
 	prependModelCheck *walk.CheckBox
 	recursiveCheck    *walk.CheckBox
 	formatCombo       *walk.ComboBox
@@ -50,7 +51,8 @@ func runUI() {
 
 	MainWindow{
 		Title:   "JPG Shamsi Renamer",
-		MinSize: Size{Width: 560, Height: 760},
+		MinSize: Size{Width: 360, Height: 760},
+		MaxSize: Size{Width: 360, Height: 760},
 		Layout:  VBox{},
 		Children: []Widget{
 			buildPathRow(s),
@@ -63,10 +65,9 @@ func runUI() {
 	}.Run()
 }
 
-// updateReport refreshes the inline report section from a Report.
 func (s *uiState) updateReport(r *Report) {
-	s.summaryLabel.SetText(fmt.Sprintf("Renamed: %d      Skipped: %d",
-		len(r.Renamed), len(r.Skipped)))
+	s.summaryLabel.SetText(fmt.Sprintf("Renamed: %d      Skipped: %d      Tagged: %d",
+		len(r.Renamed), len(r.Skipped), len(r.Tagged)))
 
 	if len(r.Renamed) == 0 {
 		s.renamedBox.SetText("(none)")
@@ -79,4 +80,16 @@ func (s *uiState) updateReport(r *Report) {
 	} else {
 		s.skippedBox.SetText(strings.Join(r.Skipped, "\r\n"))
 	}
+
+	if len(r.Tagged) == 0 {
+		s.taggedBox.SetText("(none)")
+	} else {
+		s.taggedBox.SetText(strings.Join(r.Tagged, "\r\n"))
+	}
+}
+
+func (s *uiState) showError(msg string) {
+	s.statusLabel.SetFont(s.errorFont)
+	s.statusLabel.SetTextColor(walk.RGB(200, 0, 0))
+	s.statusLabel.SetText(msg)
 }

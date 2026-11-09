@@ -39,6 +39,11 @@ func buildPathRow(s *uiState) Widget {
 							}
 						},
 					},
+					CheckBox{
+						AssignTo: &s.recursiveCheck,
+						Text:     "Include subdirectories",
+						Font:     bodyFont,
+					},
 				},
 			},
 		},
