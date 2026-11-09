@@ -44,7 +44,7 @@ func TestAddBridgeTags(t *testing.T) {
 	writeMinimalJPEG(t, path)
 
 	jy, jm := 1398, jalaali.Month(11)
-	if err := addBridgeTags(path, jy, jm); err != nil {
+	if err := addNewTags(path, jy, int(jm)); err != nil {
 		t.Fatalf("addBridgeTags: %v", err)
 	}
 
@@ -73,7 +73,7 @@ func TestAddBridgeTagsNoDay(t *testing.T) {
 
 	// Day 28 must NOT appear in any keyword.
 	jy, jm := 1398, jalaali.Month(11)
-	if err := addBridgeTags(path, jy, jm); err != nil {
+	if err := addNewTags(path, jy, int(jm)); err != nil {
 		t.Fatalf("addBridgeTags: %v", err)
 	}
 

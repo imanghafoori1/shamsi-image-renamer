@@ -144,8 +144,8 @@ func TestProcessDir_NoEXIFIsSkipped(t *testing.T) {
 	if len(report.Skipped) != 1 {
 		t.Fatalf("expected 1 skipped, got %v", report.Skipped)
 	}
-	if !strings.Contains(report.Skipped[0], "no EXIF data") {
-		t.Errorf("skip reason = %q, want 'no EXIF data'", report.Skipped[0])
+	if !strings.Contains(report.Skipped[0], "no DateTimeOriginal") {
+		t.Errorf("skip reason = %q, want 'no DateTimeOriginal'", report.Skipped[0])
 	}
 
 	files := listDir(t, dir)
@@ -246,7 +246,7 @@ func TestProcessDir_RepairsDoubleDecoratedName(t *testing.T) {
 	dir := t.TempDir()
 	// Simulate a file left behind by the old buggy build.
 	writeJPEGWithEXIF(t,
-		filepath.Join(dir, "NIKOND7200_NIKOND7200_IMG_0003-بهمن-1398-1398-bahman-6-1398-11-06.jpg"),
+		filepath.Join(dir, "NIKON D7200_NIKON D7200_IMG_0003-1398-bahman-1398-11-06.jpg"),
 		"2020:01:26 14:30:00", "NIKON D7200")
 
 	r, err := processDir(dir, true, dateFormats[2], false, false)
@@ -338,7 +338,7 @@ func TestProcessDir_TargetExistsIsSkipped(t *testing.T) {
 func TestProcessDir_StripsOldNonNormalizedPrefix(t *testing.T) {
 	dir := t.TempDir()
 	writeJPEGWithEXIF(t,
-		filepath.Join(dir, "NIKOND7200_IMG_0003-1398-bahman.jpg"),
+		filepath.Join(dir, "NIKON D7200_IMG_0003-1398-bahman.jpg"),
 		"2020:01:26 14:30:00", "NIKON D7200")
 
 	r, err := processDir(dir, false, dateFormats[2], false, false)

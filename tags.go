@@ -5,13 +5,11 @@ import (
 	"log"
 	"os/exec"
 	"syscall"
-
-	"github.com/jalaali/go-jalaali"
 )
 
-// addBridgeTags writes year, season, and month as XMP keywords using the
+// addNewTags writes year, season, and month as XMP keywords using the
 // bundled ExifTool. Adobe Bridge reads these from XMP-dc:Subject.
-func addBridgeTags(path string, jy int, jm jalaali.Month) error {
+func addNewTags(path string, jy int, jm int) error {
 	exiftool, err := ensureExifTool()
 	if err != nil {
 		return fmt.Errorf("exiftool not available: %w", err)

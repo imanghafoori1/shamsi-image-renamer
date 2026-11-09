@@ -1,19 +1,27 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
+	"syscall"
 	"time"
 
-	"github.com/gomantics/imx"
 	"github.com/jalaali/go-jalaali"
-	"github.com/rwcarlsen/goexif/exif"
 )
 
 var filenameDateRe = regexp.MustCompile(`(20[0-4]\d(?:0[1-9]|1[0-2])(?:0[1-9]|[12]\d|3[01]))`)
+
+// exiftoolOutput is the subset of ExifTool's -json output we need.
+type exiftoolOutput struct {
+	DateTimeOriginal string `json:"DateTimeOriginal"`
+	Model            string `json:"Model"`
+	Make             string `json:"Make"`
+}
 
 func processDir(dir string, prependModel bool, format DateFormat, recursive bool, addTags bool) (*Report, error) {
 	report := &Report{}
@@ -78,21 +86,16 @@ func processFile(dir, fileName string, prependModel bool, format DateFormat, add
 
 	ext := strings.ToLower(filepath.Ext(fileName))
 	switch ext {
-	case ".jpg", ".jpeg":
-		tm, rawModel, err = readJPEGMeta(fullPath)
-	case ".heic", ".heif":
-		tm, rawModel, err = readIMXMeta(fullPath)
 	case ".mp4", ".mov":
 		if ft, ferr := dateFromFilename(fileName); ferr == nil {
 			tm = ft
 			rawModel = ""
 			err = nil
 		} else {
-			tm, rawModel, err = readIMXMeta(fullPath)
+			tm, rawModel, err = readExifToolMeta(fullPath)
 		}
 	default:
-		report.addSkipped(fileName, "unsupported format")
-		return
+		tm, rawModel, err = readExifToolMeta(fullPath)
 	}
 	if err != nil {
 		report.addSkipped(fileName, err.Error())
@@ -105,7 +108,8 @@ func processFile(dir, fileName string, prependModel bool, format DateFormat, add
 	}
 
 	jy, jm, jd, _ := jalaali.ToJalaali(tm.Year(), tm.Month(), tm.Day())
-	canonicalSuffix := format.Suffix(jy, jm, jd)
+	jmInt := int(jm)
+	canonicalSuffix := format.Suffix(jy, jmInt, jd)
 
 	fileExt := filepath.Ext(fileName)
 	stem := strings.TrimSuffix(fileName, fileExt)
@@ -113,7 +117,7 @@ func processFile(dir, fileName string, prependModel bool, format DateFormat, add
 	stem = stripKnownDecorations(
 		stem,
 		buildPrefixStripSet(rawModel),
-		buildSuffixStripSet(jy, jm, jd),
+		buildSuffixStripSet(jy, jmInt, jd),
 	)
 
 	if stem == "" {
@@ -139,7 +143,7 @@ func processFile(dir, fileName string, prependModel bool, format DateFormat, add
 	}
 
 	if addTags {
-		if tagErr := addBridgeTags(newPath, jy, jm); tagErr != nil {
+		if tagErr := addNewTags(newPath, jy, jmInt); tagErr != nil {
 			fmt.Fprintf(os.Stderr, "WARNING: tags not added to %s: %v\n", newName, tagErr)
 			report.addSkipped(newName, "renamed, but tags failed: "+tagErr.Error())
 			return
@@ -149,129 +153,50 @@ func processFile(dir, fileName string, prependModel bool, format DateFormat, add
 	report.addRenamed(fileName, newName)
 }
 
-// readJPEGMeta reads EXIF from JPEG files using goexif.
-func readJPEGMeta(path string) (time.Time, string, error) {
-	f, err := os.Open(path)
+// readExifToolMeta extracts the capture date and camera model from any
+// supported file using the bundled ExifTool.
+func readExifToolMeta(path string) (time.Time, string, error) {
+	exiftool, err := ensureExifTool()
 	if err != nil {
 		return time.Time{}, "", errNoEXIF
 	}
-	defer f.Close()
 
-	x, err := exif.Decode(f)
-	if err != nil || x == nil {
+	cmd := exec.Command(exiftool,
+		"-json",
+		"-DateTimeOriginal",
+		"-Model",
+		"-Make",
+		path,
+	)
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		HideWindow:    true,
+		CreationFlags: 0x08000000,
+	}
+
+	out, err := cmd.Output()
+	if err != nil {
 		return time.Time{}, "", errNoEXIF
 	}
 
-	tm, err := readJPEGDate(x)
-	if err != nil {
-		return time.Time{}, "", err
+	var result []exiftoolOutput
+	if err := json.Unmarshal(out, &result); err != nil || len(result) == 0 {
+		return time.Time{}, "", errNoEXIF
 	}
 
-	model := readJPEGModel(x)
+	rec := result[0]
+
+	if rec.DateTimeOriginal == "" {
+		return time.Time{}, "", errNoDateTime
+	}
+	tm, err := time.Parse("2006:01:02 15:04:05", rec.DateTimeOriginal)
+	if err != nil {
+		return time.Time{}, "", errBadDateFmt
+	}
+
+	model := strings.TrimSpace(rec.Model)
+	if model == "" {
+		model = strings.TrimSpace(rec.Make)
+	}
+
 	return tm, model, nil
-}
-
-func readJPEGDate(x *exif.Exif) (time.Time, error) {
-	tag, err := x.Get(exif.DateTimeOriginal)
-	if err != nil {
-		return time.Time{}, errNoDateTime
-	}
-	dateStr, err := tag.StringVal()
-	if err != nil {
-		return time.Time{}, errBadDateTag
-	}
-	tm, err := time.Parse("2006:01:02 15:04:05", dateStr)
-	if err != nil {
-		return time.Time{}, errBadDateFmt
-	}
-	return tm, nil
-}
-
-func readJPEGModel(x *exif.Exif) string {
-	tag, err := x.Get(exif.Model)
-	if err != nil {
-		return ""
-	}
-	s, err := tag.StringVal()
-	if err != nil {
-		return ""
-	}
-	return strings.TrimSpace(s)
-}
-
-// readIMXMeta reads metadata from HEIC files using imx.
-func readIMXMeta(path string) (time.Time, string, error) {
-	meta, err := imx.MetadataFromFile(path)
-	if err != nil || meta == nil {
-		return time.Time{}, "", errNoEXIF
-	}
-
-	tm, err := readIMXDate(meta)
-	if err != nil {
-		return time.Time{}, "", err
-	}
-
-	model := readIMXModel(meta)
-	return tm, model, nil
-}
-
-func readIMXDate(meta *imx.Metadata) (time.Time, error) {
-	if tag, ok := meta.Tag(imx.TagDateTimeOriginal); ok {
-		if s, ok := tag.Value.(string); ok && s != "" {
-			if tm, err := time.Parse("2006:01:02 15:04:05", s); err == nil {
-				return tm, nil
-			}
-		}
-	}
-	return time.Time{}, errNoDateTime
-}
-
-func readIMXModel(meta *imx.Metadata) string {
-	if tag, ok := meta.Tag(imx.TagModel); ok {
-		if s, ok := tag.Value.(string); ok {
-			return strings.TrimSpace(s)
-		}
-	}
-	if tag, ok := meta.Tag(imx.TagMake); ok {
-		if s, ok := tag.Value.(string); ok {
-			return strings.TrimSpace(s)
-		}
-	}
-	return ""
-}
-
-// buildPrefixStripSet returns every model-prefix spelling a previous run
-// could have prepended for this file, given its raw EXIF model.
-func buildPrefixStripSet(rawModel string) []string {
-	raw := strings.TrimSpace(rawModel)
-	if raw == "" {
-		return nil
-	}
-
-	seen := map[string]bool{}
-	var out []string
-	add := func(p string) {
-		if p == "" || seen[p] {
-			return
-		}
-		seen[p] = true
-		out = append(out, p)
-	}
-
-	add(modelToPrefix(raw))
-	add(sanitizeModel(raw) + "_")
-	add(normalizeModel(sanitizeModel(raw)) + "_")
-	add(raw + "_")
-
-	return out
-}
-
-// buildSuffixStripSet returns every suffix spelling a previous run could
-// have appended for this file's date, across all supported formats.
-func buildSuffixStripSet(jy int, jm jalaali.Month, jd int) []string {
-	out := make([]string, 0, len(dateFormats))
-	for _, f := range dateFormats {
-		out = append(out, f.Suffix(jy, jm, jd))
-	}
-	return out
 }

@@ -7,7 +7,9 @@ import (
 	"image/color"
 	"image/jpeg"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"syscall"
 	"testing"
 
 	"github.com/msvens/mimage/metadata"
@@ -36,24 +38,44 @@ func writeMinimalJPEG(t *testing.T, path string) {
 func writeJPEGWithEXIF(t *testing.T, path, dateTaken, model string) {
 	t.Helper()
 
+	// 1. Write a minimal valid JPEG.
+	img := image.NewRGBA(image.Rect(0, 0, 1, 1))
+	img.Set(0, 0, color.RGBA{R: 128, G: 128, B: 128, A: 255})
 	var buf bytes.Buffer
-	buf.Write([]byte{0xFF, 0xD8}) // SOI
-
-	if dateTaken != "" {
-		tiff := buildExifTIFF(dateTaken, model)
-		payload := append([]byte("Exif\x00\x00"), tiff...)
-		buf.Write([]byte{0xFF, 0xE1})
-		length := uint16(len(payload) + 2)
-		var lenBytes [2]byte
-		binary.BigEndian.PutUint16(lenBytes[:], length)
-		buf.Write(lenBytes[:])
-		buf.Write(payload)
+	if err := jpeg.Encode(&buf, img, &jpeg.Options{Quality: 80}); err != nil {
+		t.Fatalf("encode JPEG: %v", err)
+	}
+	if err := os.WriteFile(path, buf.Bytes(), 0644); err != nil {
+		t.Fatalf("write JPEG: %v", err)
 	}
 
-	buf.Write([]byte{0xFF, 0xD9}) // EOI
+	// 2. If no date requested, stop here (tests for the "no EXIF" path).
+	if dateTaken == "" {
+		return
+	}
 
-	if err := os.WriteFile(path, buf.Bytes(), 0644); err != nil {
-		t.Fatalf("write JPEG fixture: %v", err)
+	// 3. Use ExifTool to inject EXIF tags.
+	exiftool, err := ensureExifTool()
+	if err != nil {
+		t.Fatalf("exiftool: %v", err)
+	}
+
+	args := []string{
+		"-overwrite_original",
+		"-DateTimeOriginal=" + dateTaken,
+	}
+	if model != "" {
+		args = append(args, "-Model="+model)
+	}
+	args = append(args, path)
+
+	cmd := exec.Command(exiftool, args...)
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		HideWindow:    true,
+		CreationFlags: 0x08000000,
+	}
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("exiftool inject: %v (output: %s)", err, out)
 	}
 }
 

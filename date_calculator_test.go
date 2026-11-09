@@ -8,7 +8,7 @@ import (
 )
 
 func TestSeasonNameLatin(t *testing.T) {
-	cases := map[jalaali.Month]string{
+	cases := map[int]string{
 		1: "spring", 2: "spring", 3: "spring",
 		4: "summer", 5: "summer", 6: "summer",
 		7: "autumn", 8: "autumn", 9: "autumn",
@@ -25,7 +25,7 @@ func TestSeasonNameLatin(t *testing.T) {
 }
 
 func TestSeasonNamePersian(t *testing.T) {
-	cases := map[jalaali.Month]string{
+	cases := map[int]string{
 		1: "بهار", 7: "پاییز", 10: "زمستان", 12: "زمستان",
 	}
 	for m, want := range cases {
@@ -53,16 +53,16 @@ func TestSeasonFormatSuffixes(t *testing.T) {
 		t.Fatal("season date formats not found in dateFormats")
 	}
 
-	if got := latinSeason.Suffix(jy, jm, jd); got != "-1398-winter" {
+	if got := latinSeason.Suffix(jy, int(jm), jd); got != "-1398-winter" {
 		t.Errorf("latin season suffix = %q, want -1398-winter", got)
 	}
-	if got := persianSeason.Suffix(jy, jm, jd); got != "-زمستان-1398" {
+	if got := persianSeason.Suffix(jy, int(jm), jd); got != "-زمستان-1398" {
 		t.Errorf("persian season suffix = %q, want -زمستان-1398", got)
 	}
 }
 
 func TestMonthNameLatin(t *testing.T) {
-	cases := map[jalaali.Month]string{
+	cases := map[int]string{
 		1: "farvardin", 2: "ordibehesht", 3: "khordad", 4: "tir",
 		5: "mordad", 6: "shahrivar", 7: "mehr", 8: "aban",
 		9: "azar", 10: "dey", 11: "bahman", 12: "esfand",
@@ -78,7 +78,7 @@ func TestMonthNameLatin(t *testing.T) {
 }
 
 func TestMonthNamePersian(t *testing.T) {
-	cases := map[jalaali.Month]string{
+	cases := map[int]string{
 		1: "فروردین", 7: "مهر", 11: "بهمن", 12: "اسفند",
 	}
 	for m, want := range cases {
@@ -126,7 +126,7 @@ func TestDateFormatSuffixes(t *testing.T) {
 			t.Errorf("no format with label containing %q", tt.labelContains)
 			continue
 		}
-		if got := found.Suffix(jy, jm, jd); got != tt.want {
+		if got := found.Suffix(jy, int(jm), jd); got != tt.want {
 			t.Errorf("format %q: got %q, want %q", found.Label, got, tt.want)
 		}
 	}
