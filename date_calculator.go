@@ -27,14 +27,14 @@ func seasonNameLatin(m jalaali.Month) string {
 }
 
 func seasonNamePersian(m jalaali.Month) string {
-	switch {
-	case m >= 1 && m <= 3:
+	switch m {
+	case 1, 2, 3:
 		return "بهار"
-	case m >= 4 && m <= 6:
+	case 4, 5, 6:
 		return "تابستان"
-	case m >= 7 && m <= 9:
+	case 7, 8, 9:
 		return "پاییز"
-	case m >= 10 && m <= 12:
+	case 10, 11, 12:
 		return "زمستان"
 	}
 	return ""
