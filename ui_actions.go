@@ -1,10 +1,5 @@
 package main
 
-import (
-	"fmt"
-	"os"
-)
-
 // runRename validates input, runs processDir, and refreshes the report.
 func runRename(s *uiState) {
 	if s.running {
@@ -13,7 +8,7 @@ func runRename(s *uiState) {
 
 	dir := s.dirEdit.Text()
 	if dir == "" {
-		s.showError("Please enter a Path")
+		s.showError(errorPathMessage())
 		return
 	}
 
@@ -23,7 +18,7 @@ func runRename(s *uiState) {
 	}
 
 	s.running = true
-	s.statusLabel.SetText("Starting...")
+	s.statusLabel.SetText(startingMessage())
 
 	prependModel := s.prependModelCheck.Checked()
 	recursive := s.recursiveCheck.Checked()
@@ -36,13 +31,11 @@ func runRename(s *uiState) {
 		s.MainWindow.Synchronize(func() {
 			s.running = false
 			if err != nil {
-				s.showError("Error: " + err.Error())
+				s.showError(errorPrefix(err.Error()))
 				return
 			}
 			s.updateReport(report)
-			fmt.Fprintln(os.Stderr, "worker done")
-			s.statusLabel.SetText(fmt.Sprintf("Done. Renamed %d, skipped %d, tagged %d.",
-				len(report.Renamed), len(report.Skipped), len(report.Tagged)))
+			s.statusLabel.SetText(doneTaggedMessage(len(report.Renamed), len(report.Skipped), len(report.Tagged)))
 		})
 	}()
 }
@@ -51,7 +44,7 @@ func runRename(s *uiState) {
 func runRemove(s *uiState, stripPrefixes, stripSuffixes bool) {
 	dir := s.dirEdit.Text()
 	if dir == "" {
-		s.showError("Please enter a Path")
+		s.showError(errorPathMessage())
 		return
 	}
 
@@ -64,10 +57,9 @@ func runRemove(s *uiState, stripPrefixes, stripSuffixes bool) {
 		report, err = removeDateSuffixes(dir, s.recursiveCheck.Checked())
 	}
 	if err != nil {
-		s.statusLabel.SetText("Error: " + err.Error())
+		s.statusLabel.SetText(errorPrefix(err.Error()))
 		return
 	}
 	s.updateReport(report)
-	s.statusLabel.SetText(fmt.Sprintf("Done. Renamed %d, skipped %d.",
-		len(report.Renamed), len(report.Skipped)))
+	s.statusLabel.SetText(doneMessage(len(report.Renamed), len(report.Skipped)))
 }

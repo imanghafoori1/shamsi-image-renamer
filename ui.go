@@ -1,8 +1,6 @@
 package main
 
 import (
-	"fmt"
-	"strings"
 	"sync"
 
 	"github.com/lxn/walk"
@@ -56,10 +54,9 @@ func (s *uiState) setProgress(done, total int, currentName string) {
 	go func() {
 		s.MainWindow.Synchronize(func() {
 			s.progressMu.Lock()
-			d, t, n := s.progressDone, s.progressTotal, s.progressName
 			s.progressPending = false
 			s.progressMu.Unlock()
-			s.statusLabel.SetText(fmt.Sprintf("Processing %d/%d: %s", d, t, n))
+			s.statusLabel.SetText(progressMessage(s.progressDone, s.progressTotal, s.progressName))
 		})
 	}()
 }
@@ -97,29 +94,6 @@ func runUI() {
 	}.Create()
 
 	s.MainWindow.Run()
-}
-
-func (s *uiState) updateReport(r *Report) {
-	s.summaryLabel.SetText(fmt.Sprintf("Renamed: %d      Skipped: %d      Tagged: %d",
-		len(r.Renamed), len(r.Skipped), len(r.Tagged)))
-
-	if len(r.Renamed) == 0 {
-		s.renamedBox.SetText("(none)")
-	} else {
-		s.renamedBox.SetText(strings.Join(r.Renamed, "\r\n"))
-	}
-
-	if len(r.Skipped) == 0 {
-		s.skippedBox.SetText("(none)")
-	} else {
-		s.skippedBox.SetText(strings.Join(r.Skipped, "\r\n"))
-	}
-
-	if len(r.Tagged) == 0 {
-		s.taggedBox.SetText("(none)")
-	} else {
-		s.taggedBox.SetText(strings.Join(r.Tagged, "\r\n"))
-	}
 }
 
 func (s *uiState) showError(msg string) {

@@ -6,11 +6,6 @@ import (
 
 // buildOptionsRow returns the option checkboxes and the date-format dropdown.
 func buildOptionsRow(s *uiState) Widget {
-	formatLabels := make([]string, len(dateFormats))
-	for i, f := range dateFormats {
-		formatLabels[i] = f.Label
-	}
-
 	return Composite{
 		Layout: VBox{},
 		Children: []Widget{
@@ -24,7 +19,7 @@ func buildOptionsRow(s *uiState) Widget {
 					},
 					CheckBox{
 						AssignTo: &s.addTagsCheck,
-						Text:     "Add searchable tags (Bridge)",
+						Text:     "Add searchable tags",
 						Font:     bodyFont,
 					},
 				},
@@ -33,13 +28,7 @@ func buildOptionsRow(s *uiState) Widget {
 				Layout: HBox{},
 				Children: []Widget{
 					Label{Text: "Date format:", Font: bodyFont},
-					ComboBox{
-						AssignTo:     &s.formatCombo,
-						Model:        formatLabels,
-						CurrentIndex: 0,
-						Font:         bodyFont,
-						MinSize:      Size{Width: 340},
-					},
+					dateFormatComboBox(s),
 					PushButton{
 						Text:    "Rename Files",
 						MinSize: Size{Width: 200, Height: 42},
