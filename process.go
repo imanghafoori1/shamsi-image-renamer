@@ -30,7 +30,12 @@ func processDir(dir string, prependModel bool, format DateFormat, recursive bool
 
 	total := countSupported(dir, recursive)
 	done := 0
-	if err := walkDir(dir, prependModel, format, recursive, addTags, report, progress, total, &done); err != nil {
+
+	onFile := func(d, name string) {
+		processFile(d, name, prependModel, format, addTags, report)
+	}
+
+	if err := walkDir(dir, recursive, report, progress, total, &done, onFile); err != nil {
 		return report, err
 	}
 	return report, nil
@@ -58,7 +63,11 @@ func countSupported(dir string, recursive bool) int {
 	return n
 }
 
-func walkDir(dir string, prependModel bool, format DateFormat, recursive bool, addTags bool, report *Report, progress ProgressFunc, total int, done *int) error {
+// FileFunc is called once per supported file. The caller decides what to do
+// with the file (rename, tag, strip decorations, etc.).
+type FileFunc func(dir, fileName string)
+
+func walkDir(dir string, recursive bool, report *Report, progress ProgressFunc, total int, done *int, onFile FileFunc) error {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return err
@@ -69,7 +78,7 @@ func walkDir(dir string, prependModel bool, format DateFormat, recursive bool, a
 				continue
 			}
 			sub := filepath.Join(dir, entry.Name())
-			if err := walkDir(sub, prependModel, format, true, addTags, report, progress, total, done); err != nil {
+			if err := walkDir(sub, true, report, progress, total, done, onFile); err != nil {
 				report.addSkipped(sub, "cannot read directory: "+err.Error())
 			}
 			continue
@@ -77,7 +86,7 @@ func walkDir(dir string, prependModel bool, format DateFormat, recursive bool, a
 		if !isSupported(entry.Name()) {
 			continue
 		}
-		processFile(dir, entry.Name(), prependModel, format, addTags, report)
+		onFile(dir, entry.Name())
 		*done++
 		if progress != nil && *done%10 == 0 {
 			progress(*done, total, entry.Name())
@@ -237,42 +246,30 @@ func readExifToolMeta(path string) (time.Time, string, string, error) {
 	return tm, makeStr, modelStr, nil
 }
 
-// removeModelPrefixes renames files in dir by stripping a leading model
-// prefix, if one is recognized for the file. Returns a report.
+// removeModelPrefixes strips a recognized camera-model prefix from every
+// supported file's stem, if one is present.
 func removeModelPrefixes(dir string, recursive bool) (*Report, error) {
-	report := &Report{}
-	return report, walkRemove(dir, recursive, true, false, report)
+	return removeDecorations(dir, recursive, true, false)
 }
 
-// removeDateSuffixes renames files in dir by stripping a trailing date
-// suffix, if one is recognized for the file.
+// removeDateSuffixes strips a recognized Jalali date suffix from every
+// supported file's stem, if one is present.
 func removeDateSuffixes(dir string, recursive bool) (*Report, error) {
-	report := &Report{}
-	return report, walkRemove(dir, recursive, false, true, report)
+	return removeDecorations(dir, recursive, false, true)
 }
 
-func walkRemove(dir string, recursive, stripPrefixes, stripSuffixes bool, report *Report) error {
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return err
+// removeDecorations runs the walk once, invoking removeFileDecorations on
+// every supported file with the given strip flags.
+func removeDecorations(dir string, recursive, stripPrefixes, stripSuffixes bool) (*Report, error) {
+	report := &Report{}
+	onFile := func(d, name string) {
+		removeFileDecorations(d, name, stripPrefixes, stripSuffixes, report)
 	}
-	for _, entry := range entries {
-		if entry.IsDir() {
-			if !recursive {
-				continue
-			}
-			sub := filepath.Join(dir, entry.Name())
-			if err := walkRemove(sub, recursive, stripPrefixes, stripSuffixes, report); err != nil {
-				report.addSkipped(sub, "cannot read directory: "+err.Error())
-			}
-			continue
-		}
-		if !isSupported(entry.Name()) {
-			continue
-		}
-		removeFileDecorations(dir, entry.Name(), stripPrefixes, stripSuffixes, report)
+	var done int
+	if err := walkDir(dir, recursive, report, nil, 0, &done, onFile); err != nil {
+		return report, err
 	}
-	return nil
+	return report, nil
 }
 
 func removeFileDecorations(dir, fileName string, stripPrefixes, stripSuffixes bool, report *Report) {
