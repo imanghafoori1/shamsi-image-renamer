@@ -143,13 +143,14 @@ func TestMakeTags(t *testing.T) {
 }
 
 func TestBuildArgs(t *testing.T) {
-	got := buildArgs("D:\\TEST\\1.jpg", []string{"1398", "winter", "bahman"})
+	got := buildArgs("C:\\Temp\\args.txt", []string{"1398", "winter", "bahman"})
 	want := []string{
+		"-charset", "filename=utf8",
 		"-overwrite_original",
 		"-XMP-dc:Subject=1398",
 		"-XMP-dc:Subject+=winter",
 		"-XMP-dc:Subject+=bahman",
-		"D:\\TEST\\1.jpg",
+		"-@", "C:\\Temp\\args.txt",
 	}
 	if len(got) != len(want) {
 		t.Fatalf("len = %d, want %d (got %v)", len(got), len(want), got)
