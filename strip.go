@@ -5,6 +5,38 @@ import (
 	"strings"
 )
 
+// Predicate reports whether target occurs at the chosen end of s.
+type Predicate func(s, target string) bool
+
+// Remover removes target from the chosen end of s and returns the result.
+type Remover func(s, target string) string
+
+// stripRepeatedly removes matching strings from one end of stem, repeating
+// until nothing changes. match reports whether a candidate occurs at the
+// chosen end; trim removes it. When breakOnMatch is true, the inner loop
+// restarts from the first candidate after a successful strip, which gives
+// longest-first ordering its intended effect.
+func stripRepeatedly(stem string, candidates []string, match Predicate, trim Remover) string {
+	for {
+		changed := false
+		for _, c := range candidates {
+			if c == "" {
+				continue
+			}
+			if match(stem, c) {
+				stem = trim(stem, c)
+				changed = true
+				break
+			}
+		}
+		if !changed {
+			break
+		}
+	}
+
+	return stem
+}
+
 // stripKnownDecorations removes decoration strings that are known to be
 // associated with this file, based on its immutable EXIF metadata.
 //
@@ -12,39 +44,13 @@ import (
 // ends, so historical double-appends collapse back to the original stem.
 // Longest suffix first, so "-1398-bahman-6" wins over "-1398-bahman".
 func stripKnownDecorations(stem string, prefixesToStrip, suffixesToStrip []string) string {
-	// Strip any known prefix, in a loop.
-	for {
-		changed := false
-		for _, p := range prefixesToStrip {
-			if p != "" && strings.HasPrefix(stem, p) {
-				stem = strings.TrimPrefix(stem, p)
-				changed = true
-			}
-		}
-		if !changed {
-			break
-		}
-	}
+	stem = stripRepeatedly(stem, prefixesToStrip, strings.HasPrefix, strings.TrimPrefix)
 
-	// Sort suffixes longest-first so overlaps are handled correctly.
 	sortedSuffixes := append([]string(nil), suffixesToStrip...)
 	sort.Slice(sortedSuffixes, func(i, j int) bool {
 		return len(sortedSuffixes[i]) > len(sortedSuffixes[j])
 	})
-
-	for {
-		changed := false
-		for _, s := range sortedSuffixes {
-			if s != "" && strings.HasSuffix(stem, s) {
-				stem = strings.TrimSuffix(stem, s)
-				changed = true
-				break // restart scan with longest suffix
-			}
-		}
-		if !changed {
-			break
-		}
-	}
+	stem = stripRepeatedly(stem, sortedSuffixes, strings.HasSuffix, strings.TrimSuffix)
 
 	return stem
 }

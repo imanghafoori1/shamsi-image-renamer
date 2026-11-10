@@ -110,3 +110,53 @@ func TestAddNewTags_EmptyMakeModel(t *testing.T) {
 		}
 	}
 }
+
+func TestMakeTags(t *testing.T) {
+	cases := []struct {
+		name        string
+		jy, jm      int
+		make, model string
+		want        []string
+	}{
+		{"full", 1398, 11, "NIKON CORPORATION", "NIKON D7200",
+			[]string{"1398", "winter", "bahman", "NIKON CORPORATION", "NIKON D7200"}},
+		{"no model", 1398, 11, "Canon", "",
+			[]string{"1398", "winter", "bahman", "Canon"}},
+		{"no make/model", 1398, 11, "", "",
+			[]string{"1398", "winter", "bahman"}},
+		{"month 1 (spring)", 1399, 1, "", "",
+			[]string{"1399", "spring", "farvardin"}},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got := makeTags(c.jy, c.jm, c.make, c.model)
+			if len(got) != len(c.want) {
+				t.Fatalf("len = %d, want %d (got %v)", len(got), len(c.want), got)
+			}
+			for i := range c.want {
+				if got[i] != c.want[i] {
+					t.Errorf("tag[%d] = %q, want %q", i, got[i], c.want[i])
+				}
+			}
+		})
+	}
+}
+
+func TestBuildArgs(t *testing.T) {
+	got := buildArgs("D:\\TEST\\1.jpg", []string{"1398", "winter", "bahman"})
+	want := []string{
+		"-overwrite_original",
+		"-XMP-dc:Subject=1398",
+		"-XMP-dc:Subject+=winter",
+		"-XMP-dc:Subject+=bahman",
+		"D:\\TEST\\1.jpg",
+	}
+	if len(got) != len(want) {
+		t.Fatalf("len = %d, want %d (got %v)", len(got), len(want), got)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("arg[%d] = %q, want %q", i, got[i], want[i])
+		}
+	}
+}
