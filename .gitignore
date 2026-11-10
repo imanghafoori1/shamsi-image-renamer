@@ -5,6 +5,7 @@
 *.exe~
 !exiftool/exiftool.exe
 *.dll
+!exiftool/exiftool_files/*.dll
 *.so
 *.dylib
 
