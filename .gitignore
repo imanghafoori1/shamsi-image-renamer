@@ -3,6 +3,7 @@
 /renamer_new.exe
 *.exe
 *.exe~
+!exiftool/exiftool.exe
 *.dll
 *.so
 *.dylib
