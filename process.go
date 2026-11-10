@@ -22,16 +22,43 @@ type exiftoolOutput struct {
 	Make             string `json:"Make"`
 }
 
-// processDir renames all supported media files in dir.
-func processDir(dir string, prependModel bool, format DateFormat, recursive bool, addTags bool) (*Report, error) {
+// ProgressFunc is called after every 10 processed files.
+type ProgressFunc func(done, total int, currentName string)
+
+func processDir(dir string, prependModel bool, format DateFormat, recursive bool, addTags bool, progress ProgressFunc) (*Report, error) {
 	report := &Report{}
-	if err := walkDir(dir, prependModel, format, recursive, addTags, report); err != nil {
+
+	total := countSupported(dir, recursive)
+	done := 0
+	if err := walkDir(dir, prependModel, format, recursive, addTags, report, progress, total, &done); err != nil {
 		return report, err
 	}
 	return report, nil
 }
 
-func walkDir(dir string, prependModel bool, format DateFormat, recursive bool, addTags bool, report *Report) error {
+// countSupported walks dir once and returns the number of files that
+// processFile would attempt to handle. Recursive only if recursive is true.
+func countSupported(dir string, recursive bool) int {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return 0
+	}
+	n := 0
+	for _, entry := range entries {
+		if entry.IsDir() {
+			if recursive {
+				n += countSupported(filepath.Join(dir, entry.Name()), true)
+			}
+			continue
+		}
+		if isSupported(entry.Name()) {
+			n++
+		}
+	}
+	return n
+}
+
+func walkDir(dir string, prependModel bool, format DateFormat, recursive bool, addTags bool, report *Report, progress ProgressFunc, total int, done *int) error {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return err
@@ -42,7 +69,7 @@ func walkDir(dir string, prependModel bool, format DateFormat, recursive bool, a
 				continue
 			}
 			sub := filepath.Join(dir, entry.Name())
-			if err := walkDir(sub, prependModel, format, true, addTags, report); err != nil {
+			if err := walkDir(sub, prependModel, format, true, addTags, report, progress, total, done); err != nil {
 				report.addSkipped(sub, "cannot read directory: "+err.Error())
 			}
 			continue
@@ -51,6 +78,10 @@ func walkDir(dir string, prependModel bool, format DateFormat, recursive bool, a
 			continue
 		}
 		processFile(dir, entry.Name(), prependModel, format, addTags, report)
+		*done++
+		if progress != nil && *done%10 == 0 {
+			progress(*done, total, entry.Name())
+		}
 	}
 	return nil
 }
@@ -77,6 +108,7 @@ func dateFromFilename(fileName string) (time.Time, error) {
 }
 
 func processFile(dir, fileName string, prependModel bool, format DateFormat, addTags bool, report *Report) {
+	fmt.Fprintln(os.Stderr, "processing:", fileName)
 	fullPath := filepath.Join(dir, fileName)
 
 	var tm time.Time
@@ -160,7 +192,21 @@ func readExifToolMeta(path string) (time.Time, string, string, error) {
 	if err != nil {
 		return time.Time{}, "", "", errNoEXIF
 	}
-	cmd := exec.Command(exiftool, "-json", "-DateTimeOriginal", "-Model", "-Make", path)
+
+	tmpFile, err := os.CreateTemp("", "exifargs-*.txt")
+	if err != nil {
+		return time.Time{}, "", "", err
+	}
+	defer os.Remove(tmpFile.Name())
+	defer tmpFile.Close()
+
+	// Write the path as UTF-8, followed by a newline.
+	if _, err := tmpFile.WriteString(path + "\n"); err != nil {
+		return time.Time{}, "", "", err
+	}
+	tmpFile.Close()
+
+	cmd := exec.Command(exiftool, "-charset", "filename=utf8", "-@", tmpFile.Name(), "-json", "-DateTimeOriginal", "-Model", "-Make", path)
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		HideWindow:    true,
 		CreationFlags: 0x08000000,

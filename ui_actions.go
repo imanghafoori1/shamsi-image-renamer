@@ -2,10 +2,15 @@ package main
 
 import (
 	"fmt"
+	"os"
 )
 
 // runRename validates input, runs processDir, and refreshes the report.
 func runRename(s *uiState) {
+	if s.running {
+		return
+	}
+
 	dir := s.dirEdit.Text()
 	if dir == "" {
 		s.showError("Please enter a Path")
@@ -17,20 +22,29 @@ func runRename(s *uiState) {
 		idx = 0
 	}
 
-	report, err := processDir(
-		dir,
-		s.prependModelCheck.Checked(),
-		dateFormats[idx],
-		s.recursiveCheck.Checked(),
-		s.addTagsCheck.Checked(),
-	)
-	if err != nil {
-		s.statusLabel.SetText("Error: " + err.Error())
-		return
-	}
-	s.updateReport(report)
-	s.statusLabel.SetText(fmt.Sprintf("Done. Renamed %d, skipped %d, tagged %d.",
-		len(report.Renamed), len(report.Skipped), len(report.Tagged)))
+	s.running = true
+	s.statusLabel.SetText("Starting...")
+
+	prependModel := s.prependModelCheck.Checked()
+	recursive := s.recursiveCheck.Checked()
+	addTags := s.addTagsCheck.Checked()
+	format := dateFormats[idx]
+
+	go func() {
+		report, err := processDir(dir, prependModel, format, recursive, addTags, s.setProgress)
+
+		s.MainWindow.Synchronize(func() {
+			s.running = false
+			if err != nil {
+				s.showError("Error: " + err.Error())
+				return
+			}
+			s.updateReport(report)
+			fmt.Fprintln(os.Stderr, "worker done")
+			s.statusLabel.SetText(fmt.Sprintf("Done. Renamed %d, skipped %d, tagged %d.",
+				len(report.Renamed), len(report.Skipped), len(report.Tagged)))
+		})
+	}()
 }
 
 // runRemove is the shared handler for the two cleanup buttons.
