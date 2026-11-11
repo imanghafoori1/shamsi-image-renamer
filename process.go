@@ -1,26 +1,17 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/jalaali/go-jalaali"
 )
 
 var filenameDateRe = regexp.MustCompile(`(20[0-4]\d(?:0[1-9]|1[0-2])(?:0[1-9]|[12]\d|3[01]))`)
-
-type exiftoolOutput struct {
-	DateTimeOriginal string `json:"DateTimeOriginal"`
-	Model            string `json:"Model"`
-	Make             string `json:"Make"`
-}
 
 // ProgressFunc is called after every 10 processed files.
 type ProgressFunc func(done, total int, currentName string)
@@ -31,8 +22,8 @@ func processDir(dir string, prependModel bool, format DateFormat, recursive bool
 	total := countSupported(dir, recursive)
 	done := 0
 
-	onFile := func(d, name string) {
-		processFile(d, name, prependModel, format, addTags, report)
+	onFile := func(dir, name string) {
+		processFile(dir, name, prependModel, format, addTags, report)
 	}
 
 	if err := walkDir(dir, recursive, report, progress, total, &done, onFile); err != nil {
@@ -193,57 +184,6 @@ func processFile(dir, fileName string, prependModel bool, format DateFormat, add
 	}
 
 	report.addRenamed(fileName, newName)
-}
-
-// readExifToolMeta returns (captureTime, Make, Model).
-func readExifToolMeta(path string) (time.Time, string, string, error) {
-	exiftool, err := ensureExifTool()
-	if err != nil {
-		return time.Time{}, "", "", errNoEXIF
-	}
-
-	tmpFile, err := os.CreateTemp("", "exifargs-*.txt")
-	if err != nil {
-		return time.Time{}, "", "", err
-	}
-	defer os.Remove(tmpFile.Name())
-	defer tmpFile.Close()
-
-	// Write the path as UTF-8, followed by a newline.
-	if _, err := tmpFile.WriteString(path + "\n"); err != nil {
-		return time.Time{}, "", "", err
-	}
-	tmpFile.Close()
-
-	cmd := exec.Command(exiftool, "-charset", "filename=utf8", "-@", tmpFile.Name(), "-json", "-DateTimeOriginal", "-Model", "-Make", path)
-	cmd.SysProcAttr = &syscall.SysProcAttr{
-		HideWindow:    true,
-		CreationFlags: 0x08000000,
-	}
-	out, err := cmd.Output()
-	if err != nil {
-		return time.Time{}, "", "", errNoEXIF
-	}
-	var result []exiftoolOutput
-	if err := json.Unmarshal(out, &result); err != nil || len(result) == 0 {
-		return time.Time{}, "", "", errNoEXIF
-	}
-	rec := result[0]
-
-	makeStr := strings.TrimSpace(rec.Make)
-	modelStr := strings.TrimSpace(rec.Model)
-
-	if rec.DateTimeOriginal == "" && modelStr == "" && makeStr == "" {
-		return time.Time{}, "", "", errNoEXIF
-	}
-	if rec.DateTimeOriginal == "" {
-		return time.Time{}, makeStr, modelStr, errNoDateTime
-	}
-	tm, err := time.Parse("2006:01:02 15:04:05", rec.DateTimeOriginal)
-	if err != nil {
-		return time.Time{}, makeStr, modelStr, errBadDateFmt
-	}
-	return tm, makeStr, modelStr, nil
 }
 
 // removeModelPrefixes strips a recognized camera-model prefix from every

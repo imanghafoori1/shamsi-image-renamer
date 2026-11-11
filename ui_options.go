@@ -59,7 +59,9 @@ func buildActionsRow(s *uiState) Widget {
 						Font:    bodyFont,
 						MinSize: Size{Width: 220, Height: 32},
 						OnClicked: func() {
-							runRemove(s, true, false)
+							runRemove(s, func(dir string, recursive bool) (*Report, error) {
+								return removeModelPrefixes(dir, recursive)
+							})
 						},
 					},
 					PushButton{
@@ -67,7 +69,9 @@ func buildActionsRow(s *uiState) Widget {
 						Font:    bodyFont,
 						MinSize: Size{Width: 220, Height: 32},
 						OnClicked: func() {
-							runRemove(s, false, true)
+							runRemove(s, func(dir string, recursive bool) (*Report, error) {
+								return removeDateSuffixes(dir, recursive)
+							})
 						},
 					},
 					HSpacer{},

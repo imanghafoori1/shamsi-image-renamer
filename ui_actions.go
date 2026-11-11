@@ -40,22 +40,19 @@ func runRename(s *uiState) {
 	}()
 }
 
+// RemoveFunc is the operation runRemove invokes. It receives the directory
+// and the recursive flag, and returns the report and any error.
+type RemoveFunc func(dir string, recursive bool) (*Report, error)
+
 // runRemove is the shared handler for the two cleanup buttons.
-func runRemove(s *uiState, stripPrefixes, stripSuffixes bool) {
+func runRemove(s *uiState, op RemoveFunc) {
 	dir := s.dirEdit.Text()
 	if dir == "" {
 		s.showError(errorPathMessage())
 		return
 	}
 
-	var report *Report
-	var err error
-	switch {
-	case stripPrefixes:
-		report, err = removeModelPrefixes(dir, s.recursiveCheck.Checked())
-	case stripSuffixes:
-		report, err = removeDateSuffixes(dir, s.recursiveCheck.Checked())
-	}
+	report, err := op(dir, s.recursiveCheck.Checked())
 	if err != nil {
 		s.statusLabel.SetText(errorPrefix(err.Error()))
 		return
