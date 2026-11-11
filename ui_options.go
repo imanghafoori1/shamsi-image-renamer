@@ -6,6 +6,9 @@ import (
 
 // buildOptionsRow returns the option checkboxes and the date-format dropdown.
 func buildOptionsRow(s *uiState) Widget {
+	message := func(report *Report) string {
+		return doneTaggedMessage(len(report.Renamed), len(report.Skipped), len(report.Tagged))
+	}
 	return Composite{
 		Layout: VBox{},
 		Children: []Widget{
@@ -35,7 +38,7 @@ func buildOptionsRow(s *uiState) Widget {
 						MaxSize: Size{Width: 200, Height: 42},
 						Font:    buttonFont,
 						OnClicked: func() {
-							runRename(s)
+							runRename(s, message)
 						},
 					},
 				},
@@ -47,10 +50,12 @@ func buildOptionsRow(s *uiState) Widget {
 // buildActionsRow returns the primary Rename button on its own row,
 // followed by a row of cleanup buttons.
 func buildActionsRow(s *uiState) Widget {
+	message := func(report *Report) string {
+		return doneMessage(len(report.Renamed), len(report.Skipped))
+	}
 	return Composite{
 		Layout: VBox{},
 		Children: []Widget{
-			// Row 1: primary action.
 			Composite{
 				Layout: HBox{},
 				Children: []Widget{
@@ -59,9 +64,7 @@ func buildActionsRow(s *uiState) Widget {
 						Font:    bodyFont,
 						MinSize: Size{Width: 220, Height: 32},
 						OnClicked: func() {
-							runRemove(s, func(dir string, recursive bool) (*Report, error) {
-								return removeModelPrefixes(dir, recursive)
-							})
+							runRemove(s, removeModelPrefixes, message)
 						},
 					},
 					PushButton{
@@ -69,9 +72,7 @@ func buildActionsRow(s *uiState) Widget {
 						Font:    bodyFont,
 						MinSize: Size{Width: 220, Height: 32},
 						OnClicked: func() {
-							runRemove(s, func(dir string, recursive bool) (*Report, error) {
-								return removeDateSuffixes(dir, recursive)
-							})
+							runRemove(s, removeDateSuffixes, message)
 						},
 					},
 					HSpacer{},
