@@ -81,3 +81,34 @@ func buildActionsRow(s *uiState) Widget {
 		},
 	}
 }
+
+// options is a snapshot of the UI controls relevant to running an operation.
+// It must be read on the GUI thread; the values are plain data and safe to
+// hand to a worker goroutine afterward.
+type folders struct {
+	rootDir   string
+	recursive bool
+}
+type options struct {
+	folders      folders
+	prependModel bool
+	addTags      bool
+	format       DateFormat
+}
+
+func readFormState(s *uiState) options {
+	idx := s.formatCombo.CurrentIndex()
+	if idx < 0 || idx >= len(dateFormats) {
+		idx = 0
+	}
+
+	return options{
+		folders: folders{
+			s.dirEdit.Text(),
+			s.recursiveCheck.Checked(),
+		},
+		prependModel: s.prependModelCheck.Checked(),
+		addTags:      s.addTagsCheck.Checked(),
+		format:       dateFormats[idx],
+	}
+}

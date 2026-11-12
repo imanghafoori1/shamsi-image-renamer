@@ -16,34 +16,37 @@ var filenameDateRe = regexp.MustCompile(`(20[0-4]\d(?:0[1-9]|1[0-2])(?:0[1-9]|[1
 // ProgressFunc is called after every 10 processed files.
 type ProgressFunc func(done, total int, currentName string)
 
-func processDir(dir string, prependModel bool, format DateFormat, recursive bool, addTags bool, progress ProgressFunc) (*Report, error) {
+func processDir(options options, progress ProgressFunc) (*Report, error) {
 	report := &Report{}
 
-	total := countSupported(dir, recursive)
+	total := countSupported(options.folders)
 	done := 0
 
 	onFile := func(dir, name string) {
-		processFile(dir, name, prependModel, format, addTags, report)
+		processFile(dir, name, options, report)
 	}
 
-	if err := walkDir(dir, recursive, report, progress, total, &done, onFile); err != nil {
+	if err := walkDir(options.folders, report, progress, total, &done, onFile); err != nil {
 		return report, err
 	}
 	return report, nil
 }
 
-// countSupported walks dir once and returns the number of files that
+// countSupported walks folders once and returns the number of files that
 // processFile would attempt to handle. Recursive only if recursive is true.
-func countSupported(dir string, recursive bool) int {
-	entries, err := os.ReadDir(dir)
+func countSupported(dirs folders) int {
+	entries, err := os.ReadDir(dirs.rootDir)
 	if err != nil {
 		return 0
 	}
 	n := 0
 	for _, entry := range entries {
 		if entry.IsDir() {
-			if recursive {
-				n += countSupported(filepath.Join(dir, entry.Name()), true)
+			if dirs.recursive {
+				n += countSupported(folders{
+					filepath.Join(dirs.rootDir, entry.Name()),
+					true,
+				})
 			}
 			continue
 		}
@@ -58,18 +61,19 @@ func countSupported(dir string, recursive bool) int {
 // with the file (rename, tag, strip decorations, etc.).
 type FileFunc func(dir, fileName string)
 
-func walkDir(dir string, recursive bool, report *Report, progress ProgressFunc, total int, done *int, onFile FileFunc) error {
+func walkDir(dirs folders, report *Report, progress ProgressFunc, total int, done *int, onFile FileFunc) error {
+	dir := dirs.rootDir
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return err
 	}
 	for _, entry := range entries {
 		if entry.IsDir() {
-			if !recursive {
+			if !dirs.recursive {
 				continue
 			}
 			sub := filepath.Join(dir, entry.Name())
-			if err := walkDir(sub, true, report, progress, total, done, onFile); err != nil {
+			if err := walkDir(folders{sub, true}, report, progress, total, done, onFile); err != nil {
 				report.addSkipped(sub, "cannot read directory: "+err.Error())
 			}
 			continue
@@ -107,8 +111,11 @@ func dateFromFilename(fileName string) (time.Time, error) {
 	return t, nil
 }
 
-func processFile(dir, fileName string, prependModel bool, format DateFormat, addTags bool, report *Report) {
-	fmt.Fprintln(os.Stderr, "processing:", fileName)
+func processFile(dir, fileName string, uiOptions options, report *Report) {
+	prependModel := uiOptions.prependModel
+	format := uiOptions.format
+	addTags := uiOptions.addTags
+
 	fullPath := filepath.Join(dir, fileName)
 
 	var tm time.Time
@@ -188,25 +195,25 @@ func processFile(dir, fileName string, prependModel bool, format DateFormat, add
 
 // removeModelPrefixes strips a recognized camera-model prefix from every
 // supported file's stem, if one is present.
-func removeModelPrefixes(dir string, recursive bool) (*Report, error) {
-	return removeDecorations(dir, recursive, true, false)
+func removeModelPrefixes(dirs folders) (*Report, error) {
+	return removeDecorations(dirs, true, false)
 }
 
 // removeDateSuffixes strips a recognized Jalali date suffix from every
 // supported file's stem, if one is present.
-func removeDateSuffixes(dir string, recursive bool) (*Report, error) {
-	return removeDecorations(dir, recursive, false, true)
+func removeDateSuffixes(dirs folders) (*Report, error) {
+	return removeDecorations(dirs, false, true)
 }
 
 // removeDecorations runs the walk once, invoking removeFileDecorations on
 // every supported file with the given strip flags.
-func removeDecorations(dir string, recursive, stripPrefixes, stripSuffixes bool) (*Report, error) {
+func removeDecorations(dirs folders, stripPrefixes, stripSuffixes bool) (*Report, error) {
 	report := &Report{}
-	onFile := func(d, name string) {
-		removeFileDecorations(d, name, stripPrefixes, stripSuffixes, report)
+	onFile := func(dir, fileName string) {
+		removeFileDecorations(dir, fileName, stripPrefixes, stripSuffixes, report)
 	}
 	var done int
-	if err := walkDir(dir, recursive, report, nil, 0, &done, onFile); err != nil {
+	if err := walkDir(dirs, report, nil, 0, &done, onFile); err != nil {
 		return report, err
 	}
 	return report, nil
