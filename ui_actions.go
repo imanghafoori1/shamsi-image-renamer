@@ -5,10 +5,16 @@ package main
 // not touch the GUI.
 type workFunc func() (*Report, error)
 
+type actionHandler struct {
+	uiState *uiState
+	message func(*Report) string
+}
+
 // runInBackground handles the shared lifecycle: guard against re-entry,
 // flip the running flag, start the worker, and marshal the result back
 // onto the GUI thread.
-func runInBackground(s *uiState, message func(*Report) string, work workFunc) {
+func (h *actionHandler) runInBackground(work workFunc) {
+	s := h.uiState
 	if s.running {
 		return
 	}
@@ -24,21 +30,21 @@ func runInBackground(s *uiState, message func(*Report) string, work workFunc) {
 				return
 			}
 			s.updateReport(report)
-			s.statusLabel.SetText(message(report))
+			s.statusLabel.SetText(h.message(report))
 		})
 	}()
 }
 
 // runRename validates input and kicks off processDir.
-func runRename(s *uiState, message func(*Report) string) {
-	options := readFormState(s)
+func (h *actionHandler) runRename() {
+	options := readFormState(h.uiState)
 	if options.folders.rootDir == "" {
-		s.showError(errorPathMessage())
+		h.uiState.showError(errorPathMessage())
 		return
 	}
 
-	runInBackground(s, message, func() (*Report, error) {
-		return processDir(options, s.setProgress)
+	h.runInBackground(func() (*Report, error) {
+		return processDir(options, h.uiState.setProgress)
 	})
 }
 
@@ -46,14 +52,15 @@ func runRename(s *uiState, message func(*Report) string) {
 // and the recursive flag, and returns the report and any error.
 type RemoveFunc func(dir folders) (*Report, error)
 
-func runRemove(s *uiState, op RemoveFunc, message func(*Report) string) {
+func (h *actionHandler) runRemove(op RemoveFunc) {
+	s := h.uiState
 	folders := readFormState(s).folders
 	if folders.rootDir == "" {
 		s.showError(errorPathMessage())
 		return
 	}
 
-	runInBackground(s, message, func() (*Report, error) {
+	h.runInBackground(func() (*Report, error) {
 		return op(folders)
 	})
 }

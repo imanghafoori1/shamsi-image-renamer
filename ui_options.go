@@ -9,6 +9,9 @@ func buildOptionsRow(s *uiState) Widget {
 	message := func(report *Report) string {
 		return doneTaggedMessage(len(report.Renamed), len(report.Skipped), len(report.Tagged))
 	}
+	h := actionHandler{
+		s, message,
+	}
 	return Composite{
 		Layout: VBox{},
 		Children: []Widget{
@@ -38,7 +41,7 @@ func buildOptionsRow(s *uiState) Widget {
 						MaxSize: Size{Width: 200, Height: 42},
 						Font:    buttonFont,
 						OnClicked: func() {
-							runRename(s, message)
+							h.runRename()
 						},
 					},
 				},
@@ -53,6 +56,9 @@ func buildActionsRow(s *uiState) Widget {
 	message := func(report *Report) string {
 		return doneMessage(len(report.Renamed), len(report.Skipped))
 	}
+	h := actionHandler{
+		s, message,
+	}
 	return Composite{
 		Layout: VBox{},
 		Children: []Widget{
@@ -64,7 +70,7 @@ func buildActionsRow(s *uiState) Widget {
 						Font:    bodyFont,
 						MinSize: Size{Width: 220, Height: 32},
 						OnClicked: func() {
-							runRemove(s, removeModelPrefixes, message)
+							h.runRemove(removeModelPrefixes)
 						},
 					},
 					PushButton{
@@ -72,7 +78,7 @@ func buildActionsRow(s *uiState) Widget {
 						Font:    bodyFont,
 						MinSize: Size{Width: 220, Height: 32},
 						OnClicked: func() {
-							runRemove(s, removeDateSuffixes, message)
+							h.runRemove(removeDateSuffixes)
 						},
 					},
 					HSpacer{},
