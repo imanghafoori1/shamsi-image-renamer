@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -16,14 +15,27 @@ var filenameDateRe = regexp.MustCompile(`(20[0-4]\d(?:0[1-9]|1[0-2])(?:0[1-9]|[1
 // ProgressFunc is called after every 10 processed files.
 type ProgressFunc func(done, total int, currentName string)
 
+type filePath struct {
+	dir  string
+	name string
+}
+
+func (p *filePath) fullPath() string {
+	return filepath.Join(p.dir, p.name)
+}
+
+func (p *filePath) getExt() string {
+	return strings.ToLower(filepath.Ext(p.name))
+}
+
 func processDir(options options, progress ProgressFunc) (*Report, error) {
 	report := &Report{}
 
 	total := countSupported(options.folders)
 	done := 0
 
-	onFile := func(dir, name string) {
-		processFile(dir, name, options, report)
+	onFile := func(path filePath) {
+		processFile(path, options, report)
 	}
 
 	if err := walkDir(options.folders, report, progress, total, &done, onFile); err != nil {
@@ -59,7 +71,7 @@ func countSupported(dirs folders) int {
 
 // FileFunc is called once per supported file. The caller decides what to do
 // with the file (rename, tag, strip decorations, etc.).
-type FileFunc func(dir, fileName string)
+type FileFunc func(file filePath)
 
 func walkDir(dirs folders, report *Report, progress ProgressFunc, total int, done *int, onFile FileFunc) error {
 	dir := dirs.rootDir
@@ -81,7 +93,7 @@ func walkDir(dirs folders, report *Report, progress ProgressFunc, total int, don
 		if !isSupported(entry.Name()) {
 			continue
 		}
-		onFile(dir, entry.Name())
+		onFile(filePath{dir, entry.Name()})
 		*done++
 		if progress != nil && *done%10 == 0 {
 			progress(*done, total, entry.Name())
@@ -111,29 +123,30 @@ func dateFromFilename(fileName string) (time.Time, error) {
 	return t, nil
 }
 
-func processFile(dir, fileName string, uiOptions options, report *Report) {
+func processFile(oldFile filePath, uiOptions options, report *Report) {
 	prependModel := uiOptions.prependModel
 	format := uiOptions.format
 	addTags := uiOptions.addTags
 
-	fullPath := filepath.Join(dir, fileName)
-
 	var tm time.Time
-	var make, model string
+	var made, model string
 	var err error
 
-	ext := strings.ToLower(filepath.Ext(fileName))
+	ext := oldFile.getExt()
+	fullPath := oldFile.fullPath()
+	fileName := oldFile.name
+
 	switch ext {
 	case ".mp4", ".mov":
 		if ft, ferr := dateFromFilename(fileName); ferr == nil {
 			tm = ft
-			make, model = "", ""
+			made, model = "", ""
 			err = nil
 		} else {
-			tm, make, model, err = readExifToolMeta(fullPath)
+			tm, made, model, err = readExifToolMeta(fullPath)
 		}
 	default:
-		tm, make, model, err = readExifToolMeta(fullPath)
+		tm, made, model, err = readExifToolMeta(fullPath)
 	}
 	if err != nil {
 		report.addSkipped(fileName, err.Error())
@@ -149,7 +162,7 @@ func processFile(dir, fileName string, uiOptions options, report *Report) {
 	jmInt := int(jm)
 	canonicalSuffix := format.Suffix(jy, jmInt, jd)
 
-	fileExt := filepath.Ext(fileName)
+	fileExt := oldFile.getExt()
 	stem := strings.TrimSuffix(fileName, fileExt)
 
 	// Only strip model prefixes when the checkbox is on.
@@ -165,7 +178,12 @@ func processFile(dir, fileName string, uiOptions options, report *Report) {
 	}
 
 	newName := canonicalPrefix + stem + canonicalSuffix + fileExt
-	newPath := filepath.Join(dir, newName)
+	newFile := filePath{
+		oldFile.dir,
+		newName,
+	}
+
+	newPath := newFile.fullPath()
 
 	if newName == fileName {
 		report.addSkipped(fileName, "already renamed")
@@ -182,8 +200,7 @@ func processFile(dir, fileName string, uiOptions options, report *Report) {
 	}
 
 	if addTags {
-		if tagErr := addNewTags(newPath, jy, jmInt, make, model); tagErr != nil {
-			fmt.Fprintf(os.Stderr, "WARNING: tags not added to %s: %v\n", newName, tagErr)
+		if tagErr := addNewTags(newPath, jy, jmInt, made, model); tagErr != nil {
 			report.addTagFailed(newName, tagErr.Error())
 			return
 		}
@@ -209,8 +226,8 @@ func removeDateSuffixes(dirs folders) (*Report, error) {
 // every supported file with the given strip flags.
 func removeDecorations(dirs folders, stripPrefixes, stripSuffixes bool) (*Report, error) {
 	report := &Report{}
-	onFile := func(dir, fileName string) {
-		removeFileDecorations(dir, fileName, stripPrefixes, stripSuffixes, report)
+	onFile := func(path filePath) {
+		removeFileDecorations(path, stripPrefixes, stripSuffixes, report)
 	}
 	var done int
 	if err := walkDir(dirs, report, nil, 0, &done, onFile); err != nil {
@@ -219,14 +236,14 @@ func removeDecorations(dirs folders, stripPrefixes, stripSuffixes bool) (*Report
 	return report, nil
 }
 
-func removeFileDecorations(dir, fileName string, stripPrefixes, stripSuffixes bool, report *Report) {
-	fullPath := filepath.Join(dir, fileName)
-
+func removeFileDecorations(path filePath, stripPrefixes, stripSuffixes bool, report *Report) {
 	var tm time.Time
 	var model string
 	var err error
 
-	ext := strings.ToLower(filepath.Ext(fileName))
+	fullPath := path.fullPath()
+	ext := path.getExt()
+	fileName := path.name
 	switch ext {
 	case ".mp4", ".mov":
 		if ft, ferr := dateFromFilename(fileName); ferr == nil {
@@ -255,8 +272,7 @@ func removeFileDecorations(dir, fileName string, stripPrefixes, stripSuffixes bo
 		suffixes = buildSuffixStripSet(jy, jmInt, jd)
 	}
 
-	fileExt := filepath.Ext(fileName)
-	stem := strings.TrimSuffix(fileName, fileExt)
+	stem := strings.TrimSuffix(fileName, ext)
 	newStem := stripKnownDecorations(stem, prefixes, suffixes)
 	if newStem == stem {
 		report.addSkipped(fileName, "nothing to remove")
@@ -266,8 +282,8 @@ func removeFileDecorations(dir, fileName string, stripPrefixes, stripSuffixes bo
 		report.addSkipped(fileName, "would become empty name")
 		return
 	}
-	newName := newStem + fileExt
-	newPath := filepath.Join(dir, newName)
+	newName := newStem + ext
+	newPath := filepath.Join(path.dir, newName)
 	if _, err := os.Stat(newPath); err == nil {
 		report.addSkipped(fileName, "target already exists")
 		return
