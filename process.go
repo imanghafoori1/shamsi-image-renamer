@@ -124,17 +124,17 @@ func (file *filePath) isSupported() bool {
 	return false
 }
 
-func (file *filePath) dateFromFilename() (time.Time, error) {
+func (file *filePath) dateFromFilename() (jalali, error) {
 	m := filenameDateRe.FindAllStringSubmatch(file.name, -1)
 	if len(m) == 0 {
-		return time.Time{}, errNoDateTime
+		return jalali{}, errNoDateTime
 	}
 	dateStr := m[len(m)-1][1]
-	t, err := time.Parse("20060102", dateStr)
+	tm, err := time.Parse("20060102", dateStr)
 	if err != nil {
-		return time.Time{}, errBadDateFmt
+		return jalali{}, errBadDateFmt
 	}
-	return t, nil
+	return timeToJalali(tm), nil
 }
 
 func processFile(oldFile filePath, uiOptions options, report *Report) {
@@ -142,34 +142,33 @@ func processFile(oldFile filePath, uiOptions options, report *Report) {
 	format := uiOptions.format
 	addTags := uiOptions.addTags
 
-	var times time.Time
+	var jala jalali
 	var made, model string
 	var err error
 
 	switch oldFile.getExt() {
 	case ".mp4", ".mov":
 		if ft, ferr := oldFile.dateFromFilename(); ferr == nil {
-			times = ft
+			jala = ft
 			made, model = "", ""
 			err = nil
 		} else {
-			times, made, model, err = oldFile.readExifToolMeta()
+			jala, made, model, err = oldFile.readExifToolMeta()
 		}
 	default:
-		times, made, model, err = oldFile.readExifToolMeta()
+		jala, made, model, err = oldFile.readExifToolMeta()
 	}
 	if err != nil {
 		report.addSkipped(oldFile, err.Error())
 		return
 	}
 
-	canonicalPrefix := ""
+	var canonicalPrefix string
 	if prependModel {
 		canonicalPrefix = modelToPrefix(model)
+	} else {
+		canonicalPrefix = ""
 	}
-
-	jala := timeToJalali(times)
-	canonicalSuffix := format.Suffix(jala)
 
 	fileExt := oldFile.getExt()
 	stem := strings.TrimSuffix(oldFile.name, fileExt)
@@ -186,7 +185,7 @@ func processFile(oldFile filePath, uiOptions options, report *Report) {
 		return
 	}
 
-	newName := canonicalPrefix + stem + canonicalSuffix + fileExt
+	newName := canonicalPrefix + stem + format.Suffix(jala) + fileExt
 	newFile := filePath{
 		oldFile.dir,
 		newName,
@@ -251,7 +250,7 @@ func removeDecorations(dirs folders, stripPrefixes, stripSuffixes bool) (*Report
 }
 
 func removeFileDecorations(file filePath, stripPrefixes, stripSuffixes bool, report *Report) {
-	var times time.Time
+	var times jalali
 	var model string
 	var err error
 
@@ -279,7 +278,7 @@ func removeFileDecorations(file filePath, stripPrefixes, stripSuffixes bool, rep
 		prefixes = buildPrefixStripSet(model)
 	}
 	if stripSuffixes {
-		suffixes = buildSuffixStripSet(timeToJalali(times))
+		suffixes = buildSuffixStripSet(times)
 	}
 
 	stem := strings.TrimSuffix(fileName, ext)
