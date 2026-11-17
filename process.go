@@ -209,7 +209,7 @@ func processFile(oldFile filePath, uiOptions options, report *Report) {
 	}
 
 	if addTags {
-		if tagErr := addNewTags(newPath, jala, made, model); tagErr != nil {
+		if tagErr := newFile.addNewTags(jala, made, model); tagErr != nil {
 			report.addTagFailed(oldFile, tagErr.Error())
 			return
 		}

@@ -23,31 +23,31 @@ var dateFormats = []DateFormat{
 	{
 		Label: "1398-bahman-28  (year-monthname-day)",
 		Suffix: func(dj jalali) string {
-			return fmt.Sprintf("-%d-%s-%d", dj.year, monthNameLatin(dj.month), dj.day)
+			return fmt.Sprintf("-%d-%s-%d", dj.year, dj.monthNameLatin(), dj.day)
 		},
 	},
 	{
 		Label: "1398-bahman  (year-monthname)",
 		Suffix: func(dj jalali) string {
-			return fmt.Sprintf("-%d-%s", dj.year, monthNameLatin(dj.month))
+			return fmt.Sprintf("-%d-%s", dj.year, dj.monthNameLatin())
 		},
 	},
 	{
 		Label: "1398-winter  (year-season, Latin)",
 		Suffix: func(dj jalali) string {
-			return fmt.Sprintf("-%d-%s", dj.year, seasonNameLatin(dj.month))
+			return fmt.Sprintf("-%d-%s", dj.year, dj.seasonNameLatin())
 		},
 	},
 	{
 		Label: "زمستان-1398  (season-year, Persian)",
 		Suffix: func(dj jalali) string {
-			return fmt.Sprintf("-%s-%d", seasonNamePersian(dj.month), dj.year)
+			return fmt.Sprintf("-%s-%d", dj.seasonNamePersian(), dj.year)
 		},
 	},
 	{
 		Label: "بهمن-1398  (monthname-year, Persian)",
 		Suffix: func(dj jalali) string {
-			return fmt.Sprintf("-%s-%d", monthNamePersian(dj.month), dj.year)
+			return fmt.Sprintf("-%s-%d", dj.monthNamePersian(), dj.year)
 		},
 	},
 }

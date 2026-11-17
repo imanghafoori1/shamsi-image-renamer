@@ -1,6 +1,7 @@
 package main
 
-func seasonNameLatin(m int) string {
+func (j *jalali) seasonNameLatin() string {
+	m := j.month
 	switch {
 	case m >= 1 && m <= 3:
 		return "spring"
@@ -14,8 +15,8 @@ func seasonNameLatin(m int) string {
 	return ""
 }
 
-func seasonNamePersian(m int) string {
-	switch m {
+func (j *jalali) seasonNamePersian() string {
+	switch j.month {
 	case 1, 2, 3:
 		return "بهار"
 	case 4, 5, 6:
@@ -28,7 +29,9 @@ func seasonNamePersian(m int) string {
 	return ""
 }
 
-func monthNameLatin(m int) string {
+func (j *jalali) monthNameLatin() string {
+	m := j.month
+
 	months := []string{
 		"farvardin", "ordibehesht", "khordad", "tir", "mordad", "shahrivar",
 		"mehr", "aban", "azar", "dey", "bahman", "esfand",
@@ -39,7 +42,8 @@ func monthNameLatin(m int) string {
 	return ""
 }
 
-func monthNamePersian(m int) string {
+func (j *jalali) monthNamePersian() string {
+	m := j.month
 	months := []string{
 		"فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور",
 		"مهر", "آبان", "آذر", "دی", "بهمن", "اسفند",

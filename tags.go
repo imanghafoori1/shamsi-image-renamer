@@ -7,14 +7,14 @@ import (
 	"syscall"
 )
 
-// addNewTags writes year, season, month, camera make, and camera model as
+// writes year, season, month, camera make, and camera model as
 // XMP keywords using the bundled ExifTool.
 //
 // The target file path is passed through an argument file (-@) with
 // -charset filename=utf8. This is required on Windows: non-ASCII paths are
 // mangled by the Win32 command-line encoding before ExifTool can see them,
 // and ExifTool's own -charset flag cannot recover them once corrupted.
-func addNewTags(path string, jala jalali, cameraMake, cameraModel string) error {
+func (file filePath) addNewTags(jala jalali, cameraMake, cameraModel string) error {
 	exiftool, err := ensureExifTool()
 	if err != nil {
 		return fmt.Errorf("exiftool not available: %w", err)
@@ -27,7 +27,7 @@ func addNewTags(path string, jala jalali, cameraMake, cameraModel string) error 
 	}
 	defer os.Remove(argFile.Name())
 
-	if _, err := argFile.WriteString(path + "\n"); err != nil {
+	if _, err := argFile.WriteString(file.fullPath() + "\n"); err != nil {
 		argFile.Close()
 		return fmt.Errorf("write arg file: %w", err)
 	}
@@ -48,8 +48,8 @@ func addNewTags(path string, jala jalali, cameraMake, cameraModel string) error 
 func makeTags(jala jalali, cameraMake string, cameraModel string) []string {
 	tags := []string{
 		fmt.Sprintf("%d", jala.year),
-		seasonNameLatin(jala.month),
-		monthNameLatin(jala.month),
+		jala.seasonNameLatin(),
+		jala.monthNameLatin(),
 	}
 	if cameraMake != "" {
 		tags = append(tags, cameraMake)
