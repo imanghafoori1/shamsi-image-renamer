@@ -15,8 +15,9 @@ type exiftoolOutput struct {
 	Make             string `json:"Make"`
 }
 
-// readExifToolMeta returns (captureTime, Make, Model).
-func readExifToolMeta(path string) (time.Time, string, string, error) {
+// returns (captureTime, Make, Model).
+func (file filePath) readExifToolMeta() (time.Time, string, string, error) {
+	path := file.fullPath()
 	exiftool, err := ensureExifTool()
 	if err != nil {
 		return time.Time{}, "", "", errNoEXIF

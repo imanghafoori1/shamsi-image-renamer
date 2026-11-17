@@ -14,7 +14,7 @@ import (
 // -charset filename=utf8. This is required on Windows: non-ASCII paths are
 // mangled by the Win32 command-line encoding before ExifTool can see them,
 // and ExifTool's own -charset flag cannot recover them once corrupted.
-func addNewTags(path string, jy, jm int, cameraMake, cameraModel string) error {
+func addNewTags(path string, jala jalali, cameraMake, cameraModel string) error {
 	exiftool, err := ensureExifTool()
 	if err != nil {
 		return fmt.Errorf("exiftool not available: %w", err)
@@ -35,7 +35,7 @@ func addNewTags(path string, jy, jm int, cameraMake, cameraModel string) error {
 		return fmt.Errorf("close arg file: %w", err)
 	}
 
-	tags := makeTags(jy, jm, cameraMake, cameraModel)
+	tags := makeTags(jala, cameraMake, cameraModel)
 	args := buildArgs(argFile.Name(), tags)
 
 	output, err := executeExifCommand(exiftool, args)
@@ -45,11 +45,11 @@ func addNewTags(path string, jy, jm int, cameraMake, cameraModel string) error {
 	return nil
 }
 
-func makeTags(jy int, jm int, cameraMake string, cameraModel string) []string {
+func makeTags(jala jalali, cameraMake string, cameraModel string) []string {
 	tags := []string{
-		fmt.Sprintf("%d", jy),
-		seasonNameLatin(jm),
-		monthNameLatin(jm),
+		fmt.Sprintf("%d", jala.year),
+		seasonNameLatin(jala.month),
+		monthNameLatin(jala.month),
 	}
 	if cameraMake != "" {
 		tags = append(tags, cameraMake)

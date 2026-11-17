@@ -40,10 +40,10 @@ func buildPrefixStripSet(rawModel string) []string {
 
 // buildSuffixStripSet returns every suffix spelling a previous run could
 // have appended for this file's date, across all supported formats.
-func buildSuffixStripSet(jy int, jm int, jd int) []string {
+func buildSuffixStripSet(jala jalali) []string {
 	out := make([]string, 0, len(dateFormats))
 	for _, f := range dateFormats {
-		out = append(out, f.Suffix(jy, jm, jd))
+		out = append(out, f.Suffix(jala))
 	}
 	return out
 }

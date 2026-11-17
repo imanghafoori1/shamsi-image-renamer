@@ -9,45 +9,45 @@ import (
 // DateFormat describes one selectable suffix style.
 type DateFormat struct {
 	Label  string
-	Suffix func(jy int, jm int, jd int) string
+	Suffix func(jd jalali) string
 }
 
 // Formats offered in the GUI. Index 0 is the default.
 var dateFormats = []DateFormat{
 	{
 		Label: "1398-11-28  (year-month-day)",
-		Suffix: func(jy int, jm int, jd int) string {
-			return fmt.Sprintf("-%04d-%02d-%02d", jy, jm, jd)
+		Suffix: func(dj jalali) string {
+			return fmt.Sprintf("-%04d-%02d-%02d", dj.year, dj.month, dj.day)
 		},
 	},
 	{
 		Label: "1398-bahman-28  (year-monthname-day)",
-		Suffix: func(jy int, jm int, jd int) string {
-			return fmt.Sprintf("-%d-%s-%d", jy, monthNameLatin(jm), jd)
+		Suffix: func(dj jalali) string {
+			return fmt.Sprintf("-%d-%s-%d", dj.year, monthNameLatin(dj.month), dj.day)
 		},
 	},
 	{
 		Label: "1398-bahman  (year-monthname)",
-		Suffix: func(jy int, jm int, jd int) string {
-			return fmt.Sprintf("-%d-%s", jy, monthNameLatin(jm))
+		Suffix: func(dj jalali) string {
+			return fmt.Sprintf("-%d-%s", dj.year, monthNameLatin(dj.month))
 		},
 	},
 	{
 		Label: "1398-winter  (year-season, Latin)",
-		Suffix: func(jy int, jm int, jd int) string {
-			return fmt.Sprintf("-%d-%s", jy, seasonNameLatin(jm))
+		Suffix: func(dj jalali) string {
+			return fmt.Sprintf("-%d-%s", dj.year, seasonNameLatin(dj.month))
 		},
 	},
 	{
 		Label: "زمستان-1398  (season-year, Persian)",
-		Suffix: func(jy int, jm int, jd int) string {
-			return fmt.Sprintf("-%s-%d", seasonNamePersian(jm), jy)
+		Suffix: func(dj jalali) string {
+			return fmt.Sprintf("-%s-%d", seasonNamePersian(dj.month), dj.year)
 		},
 	},
 	{
 		Label: "بهمن-1398  (monthname-year, Persian)",
-		Suffix: func(jy int, jm int, jd int) string {
-			return fmt.Sprintf("-%s-%d", monthNamePersian(jm), jy)
+		Suffix: func(dj jalali) string {
+			return fmt.Sprintf("-%s-%d", monthNamePersian(dj.month), dj.year)
 		},
 	},
 }

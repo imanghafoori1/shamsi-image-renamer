@@ -12,20 +12,20 @@ type Report struct {
 	TagFailed []string
 }
 
-func (r *Report) addRenamed(oldName, newName string) {
-	r.Renamed = append(r.Renamed, fmt.Sprintf("%s  ->  %s", oldName, newName))
+func (r *Report) addRenamed(file, newName filePath) {
+	r.Renamed = append(r.Renamed, fmt.Sprintf("%s  ->  %s", file.name, newName.name))
 }
 
-func (r *Report) addSkipped(name, reason string) {
-	r.Skipped = append(r.Skipped, fmt.Sprintf("%s  (%s)", name, reason))
+func (r *Report) addSkipped(file filePath, reason string) {
+	r.Skipped = append(r.Skipped, fmt.Sprintf("%s  (%s)", file.name, reason))
 }
 
-func (r *Report) addTagged(name string) {
-	r.Tagged = append(r.Tagged, name)
+func (r *Report) addTagged(name filePath) {
+	r.Tagged = append(r.Tagged, name.fullPath())
 }
 
-func (r *Report) addTagFailed(name, reason string) {
-	r.TagFailed = append(r.TagFailed, fmt.Sprintf("%s  (%s)", name, reason))
+func (r *Report) addTagFailed(file filePath, reason string) {
+	r.TagFailed = append(r.TagFailed, fmt.Sprintf("%s  (%s)", file.name, reason))
 }
 
 func (s *uiState) updateReport(r *Report) {
