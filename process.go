@@ -170,22 +170,19 @@ func processFile(oldFile filePath, uiOptions options, report *Report) {
 		canonicalPrefix = ""
 	}
 
-	fileExt := oldFile.getExt()
-	stem := strings.TrimSuffix(oldFile.name, fileExt)
-
 	// Only strip model prefixes when the checkbox is on.
 	var prefixes []string
 	if prependModel {
 		prefixes = buildPrefixStripSet(model)
 	}
-	stem = stripKnownDecorations(stem, prefixes, buildSuffixStripSet(jala))
+	stem, _ := oldFile.stripKnownDecorations(prefixes, buildSuffixStripSet(jala))
 
 	if stem == "" {
 		report.addSkipped(oldFile, "would become empty name")
 		return
 	}
 
-	newName := canonicalPrefix + stem + format.Suffix(jala) + fileExt
+	newName := canonicalPrefix + stem + format.Suffix(jala) + oldFile.getExt()
 	newFile := filePath{
 		oldFile.dir,
 		newName,
@@ -255,7 +252,6 @@ func removeFileDecorations(file filePath, stripPrefixes, stripSuffixes bool, rep
 	var err error
 
 	ext := file.getExt()
-	fileName := file.name
 	switch ext {
 	case ".mp4", ".mov":
 		if ft, ferr := file.dateFromFilename(); ferr == nil {
@@ -281,9 +277,8 @@ func removeFileDecorations(file filePath, stripPrefixes, stripSuffixes bool, rep
 		suffixes = buildSuffixStripSet(times)
 	}
 
-	stem := strings.TrimSuffix(fileName, ext)
-	newStem := stripKnownDecorations(stem, prefixes, suffixes)
-	if newStem == stem {
+	newStem, change := file.stripKnownDecorations(prefixes, suffixes)
+	if change {
 		report.addSkipped(file, "nothing to remove")
 		return
 	}

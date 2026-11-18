@@ -17,22 +17,26 @@ type exiftoolOutput struct {
 
 // returns (captureTime, Make, Model).
 func (file filePath) readExifToolMeta() (jalali, string, string, error) {
+	exifError := func(errNoEXIF error) (jalali, string, string, error) {
+		return jalali{}, "", "", errNoEXIF
+	}
+
 	path := file.fullPath()
 	exiftool, err := ensureExifTool()
 	if err != nil {
-		return jalali{}, "", "", errNoEXIF
+		return exifError(errNoEXIF)
 	}
 
 	tmpFile, err := os.CreateTemp("", "exifargs-*.txt")
 	if err != nil {
-		return jalali{}, "", "", err
+		return exifError(err)
 	}
 	defer os.Remove(tmpFile.Name())
 	defer tmpFile.Close()
 
 	// Write the path as UTF-8, followed by a newline.
 	if _, err := tmpFile.WriteString(path + "\n"); err != nil {
-		return jalali{}, "", "", err
+		return exifError(err)
 	}
 	tmpFile.Close()
 
@@ -43,11 +47,11 @@ func (file filePath) readExifToolMeta() (jalali, string, string, error) {
 	}
 	out, err := cmd.Output()
 	if err != nil {
-		return jalali{}, "", "", errNoEXIF
+		return exifError(errNoEXIF)
 	}
 	var result []exiftoolOutput
 	if err := json.Unmarshal(out, &result); err != nil || len(result) == 0 {
-		return jalali{}, "", "", errNoEXIF
+		return exifError(errNoEXIF)
 	}
 	rec := result[0]
 
@@ -55,7 +59,7 @@ func (file filePath) readExifToolMeta() (jalali, string, string, error) {
 	modelStr := strings.TrimSpace(rec.Model)
 
 	if rec.DateTimeOriginal == "" && modelStr == "" && makeStr == "" {
-		return jalali{}, "", "", errNoEXIF
+		return exifError(errNoEXIF)
 	}
 	if rec.DateTimeOriginal == "" {
 		return jalali{}, makeStr, modelStr, errNoDateTime
