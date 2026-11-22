@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"os"
 	"os/exec"
+	. "renamer/file"
+	. "renamer/jalali"
 	"strings"
 	"syscall"
 	"time"
@@ -16,12 +18,12 @@ type exiftoolOutput struct {
 }
 
 // returns (captureTime, Make, Model).
-func (file filePath) readExifToolMeta() (jalali, string, string, error) {
-	exifError := func(errNoEXIF error) (jalali, string, string, error) {
-		return jalali{}, "", "", errNoEXIF
+func readExifToolMeta(file FilePath) (Jalali, string, string, error) {
+	exifError := func(errNoEXIF error) (Jalali, string, string, error) {
+		return Jalali{}, "", "", errNoEXIF
 	}
 
-	path := file.fullPath()
+	path := file.FullPath()
 	exiftool, err := ensureExifTool()
 	if err != nil {
 		return exifError(errNoEXIF)
@@ -62,11 +64,11 @@ func (file filePath) readExifToolMeta() (jalali, string, string, error) {
 		return exifError(errNoEXIF)
 	}
 	if rec.DateTimeOriginal == "" {
-		return jalali{}, makeStr, modelStr, errNoDateTime
+		return Jalali{}, makeStr, modelStr, errNoDateTime
 	}
 	tm, err := time.Parse("2006:01:02 15:04:05", rec.DateTimeOriginal)
 	if err != nil {
-		return jalali{}, makeStr, modelStr, errBadDateFmt
+		return Jalali{}, makeStr, modelStr, errBadDateFmt
 	}
-	return timeToJalali(tm), makeStr, modelStr, nil
+	return TimeToJalali(tm), makeStr, modelStr, nil
 }

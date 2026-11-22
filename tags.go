@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	. "renamer/file"
+	. "renamer/jalali"
+
 	"syscall"
 )
 
@@ -14,7 +17,7 @@ import (
 // -charset filename=utf8. This is required on Windows: non-ASCII paths are
 // mangled by the Win32 command-line encoding before ExifTool can see them,
 // and ExifTool's own -charset flag cannot recover them once corrupted.
-func (file filePath) addNewTags(jala jalali, cameraMake, cameraModel string) error {
+func addNewTags(file FilePath, jala Jalali, cameraMake, cameraModel string) error {
 	exiftool, err := ensureExifTool()
 	if err != nil {
 		return fmt.Errorf("exiftool not available: %w", err)
@@ -27,7 +30,7 @@ func (file filePath) addNewTags(jala jalali, cameraMake, cameraModel string) err
 	}
 	defer os.Remove(argFile.Name())
 
-	if _, err := argFile.WriteString(file.fullPath() + "\n"); err != nil {
+	if _, err := argFile.WriteString(file.FullPath() + "\n"); err != nil {
 		argFile.Close()
 		return fmt.Errorf("write arg file: %w", err)
 	}
@@ -45,11 +48,11 @@ func (file filePath) addNewTags(jala jalali, cameraMake, cameraModel string) err
 	return nil
 }
 
-func makeTags(jala jalali, cameraMake string, cameraModel string) []string {
+func makeTags(jala Jalali, cameraMake string, cameraModel string) []string {
 	tags := []string{
-		fmt.Sprintf("%d", jala.year),
-		jala.seasonNameLatin(),
-		jala.monthNameLatin(),
+		fmt.Sprintf("%d", jala.Year),
+		jala.SeasonNameLatin(),
+		jala.MonthNameLatin(),
 	}
 	if cameraMake != "" {
 		tags = append(tags, cameraMake)

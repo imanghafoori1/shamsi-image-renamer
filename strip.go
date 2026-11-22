@@ -1,6 +1,7 @@
 package main
 
 import (
+	. "renamer/file"
 	"sort"
 	"strings"
 )
@@ -43,8 +44,8 @@ func stripRepeatedly(stem string, candidates []string, match Predicate, trim Rem
 // Both prefixes and suffixes are stripped repeatedly from the respective
 // ends, so historical double-appends collapse back to the original stem.
 // Longest suffix first, so "-1398-bahman-6" wins over "-1398-bahman".
-func (file *filePath) stripKnownDecorations(prefixesToStrip, suffixesToStrip []string) (string, bool) {
-	stem := strings.TrimSuffix(file.name, file.getExt())
+func stripKnownDecorations(file FilePath, prefixesToStrip, suffixesToStrip []string) (string, bool) {
+	stem := strings.TrimSuffix(file.Name, file.GetExt())
 
 	newStem := stripRepeatedly(
 		stem,

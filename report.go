@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	. "renamer/file"
 	"strings"
 )
 
@@ -12,20 +13,20 @@ type Report struct {
 	TagFailed []string
 }
 
-func (r *Report) addRenamed(file, newName filePath) {
-	r.Renamed = append(r.Renamed, fmt.Sprintf("%s  ->  %s", file.name, newName.name))
+func (r *Report) addRenamed(file, newName FilePath) {
+	r.Renamed = append(r.Renamed, fmt.Sprintf("%s  ->  %s", file.Name, newName.Name))
 }
 
-func (r *Report) addSkipped(file filePath, reason string) {
-	r.Skipped = append(r.Skipped, fmt.Sprintf("%s  (%s)", file.name, reason))
+func (r *Report) addSkipped(file FilePath, reason string) {
+	r.Skipped = append(r.Skipped, fmt.Sprintf("%s  (%s)", file.Name, reason))
 }
 
-func (r *Report) addTagged(name filePath) {
-	r.Tagged = append(r.Tagged, name.fullPath())
+func (r *Report) addTagged(name FilePath) {
+	r.Tagged = append(r.Tagged, name.FullPath())
 }
 
-func (r *Report) addTagFailed(file filePath, reason string) {
-	r.TagFailed = append(r.TagFailed, fmt.Sprintf("%s  (%s)", file.name, reason))
+func (r *Report) addTagFailed(file FilePath, reason string) {
+	r.TagFailed = append(r.TagFailed, fmt.Sprintf("%s  (%s)", file.Name, reason))
 }
 
 func (s *uiState) updateReport(r *Report) {
