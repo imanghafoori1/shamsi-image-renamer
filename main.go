@@ -1,6 +1,13 @@
 package main
 
+import . "renamer/ui"
+
+func renamer(ops Options, Pr ProgressFunc) (work WorkFunc) {
+	return func() (*Report, error) {
+		return processDir(ops, Pr)
+	}
+}
 func main() {
 	defer cleanupExifTool()
-	runUI()
+	RunUI(removeModelPrefixes, removeDateSuffixes, renamer)
 }

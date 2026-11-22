@@ -1,4 +1,4 @@
-package main
+package ui
 
 import (
 	. "github.com/lxn/walk/declarative"
@@ -6,7 +6,7 @@ import (
 
 // buildReportSection returns the summary label plus the two scrollable
 // list boxes for renamed and skipped files.
-func buildReportSection(s *uiState) Widget {
+func buildReportSection(s *UiState) Widget {
 	return Composite{
 		Layout: VBox{},
 		Children: []Widget{

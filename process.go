@@ -6,25 +6,25 @@ import (
 	"regexp"
 	. "renamer/file"
 	. "renamer/jalali"
+	. "renamer/ui"
 	"time"
 )
 
 var filenameDateRe = regexp.MustCompile(`(20[0-4]\d(?:0[1-9]|1[0-2])(?:0[1-9]|[12]\d|3[01]))`)
 
 // ProgressFunc is called after every 10 processed files.
-type ProgressFunc func(done, total int, currentName string)
 
-func processDir(options options, progress ProgressFunc) (*Report, error) {
+func processDir(ops Options, progress ProgressFunc) (*Report, error) {
 	report := &Report{}
 
-	total := countSupported(options.folders)
+	total := countSupported(ops.Folders)
 	done := 0
 
 	onFile := func(path FilePath) {
-		processFile(path, options, report)
+		processFile(path, ops, report)
 	}
 
-	if err := walkDir(options.folders, report, progress, total, &done, onFile); err != nil {
+	if err := walkDir(ops.Folders, report, progress, total, &done, onFile); err != nil {
 		return report, err
 	}
 	return report, nil
@@ -32,17 +32,17 @@ func processDir(options options, progress ProgressFunc) (*Report, error) {
 
 // countSupported walks folders once and returns the number of files that
 // processFile would attempt to handle. Recursive only if recursive is true.
-func countSupported(dirs folders) int {
-	entries, err := os.ReadDir(dirs.rootDir)
+func countSupported(dirs Folders) int {
+	entries, err := os.ReadDir(dirs.RootDir)
 	if err != nil {
 		return 0
 	}
 	n := 0
 	for _, entry := range entries {
 		if entry.IsDir() {
-			if dirs.recursive {
-				n += countSupported(folders{
-					filepath.Join(dirs.rootDir, entry.Name()),
+			if dirs.Recursive {
+				n += countSupported(Folders{
+					filepath.Join(dirs.RootDir, entry.Name()),
 					true,
 				})
 			}
@@ -60,21 +60,21 @@ func countSupported(dirs folders) int {
 // with the file (rename, tag, strip decorations, etc.).
 type FileFunc func(file FilePath)
 
-func walkDir(dirs folders, report *Report, progress ProgressFunc, total int, done *int, onFile FileFunc) error {
-	dir := dirs.rootDir
+func walkDir(dirs Folders, report *Report, progress ProgressFunc, total int, done *int, onFile FileFunc) error {
+	dir := dirs.RootDir
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return err
 	}
 	for _, entry := range entries {
 		if entry.IsDir() {
-			if !dirs.recursive {
+			if !dirs.Recursive {
 				continue
 			}
 			sub := filepath.Join(dir, entry.Name())
-			subDir := folders{sub, true}
+			subDir := Folders{sub, true}
 			if err := walkDir(subDir, report, progress, total, done, onFile); err != nil {
-				report.addSkipped(FilePath{Name: dir}, "cannot read directory: "+err.Error())
+				report.AddSkipped(FilePath{Name: dir}, "cannot read directory: "+err.Error())
 			}
 			continue
 		}
@@ -85,7 +85,7 @@ func walkDir(dirs folders, report *Report, progress ProgressFunc, total int, don
 		}
 		onFile(file)
 		*done++
-		if progress != nil && *done%10 == 0 {
+		if *done%10 == 0 {
 			progress(*done, total, entry.Name())
 		}
 	}
@@ -105,99 +105,17 @@ func dateFromFilename(file FilePath) (Jalali, error) {
 	return TimeToJalali(tm), nil
 }
 
-func processFile(oldFile FilePath, uiOptions options, report *Report) {
-	prependModel := uiOptions.prependModel
-	format := uiOptions.format
-	addTags := uiOptions.addTags
-
-	var jala Jalali
-	var made, model string
-	var err error
-
-	switch oldFile.GetExt() {
-	case ".mp4", ".mov":
-		if ft, ferr := dateFromFilename(oldFile); ferr == nil {
-			jala = ft
-			made, model = "", ""
-			err = nil
-		} else {
-			jala, made, model, err = readExifToolMeta(oldFile)
-		}
-	default:
-		jala, made, model, err = readExifToolMeta(oldFile)
-	}
-	if err != nil {
-		report.addSkipped(oldFile, err.Error())
-		return
-	}
-
-	var canonicalPrefix string
-	if prependModel {
-		canonicalPrefix = modelToPrefix(model)
-	} else {
-		canonicalPrefix = ""
-	}
-
-	// Only strip model prefixes when the checkbox is on.
-	var prefixes []string
-	if prependModel {
-		prefixes = buildPrefixStripSet(model)
-	}
-	stem, _ := stripKnownDecorations(oldFile, prefixes, buildSuffixStripSet(jala))
-
-	if stem == "" {
-		report.addSkipped(oldFile, "would become empty name")
-		return
-	}
-
-	newName := canonicalPrefix + stem + format.Suffix(jala) + oldFile.GetExt()
-	newFile := FilePath{
-		Dir:  oldFile.Dir,
-		Name: newName,
-	}
-
-	newPath := newFile.FullPath()
-
-	if newName == oldFile.Name {
-		report.addSkipped(oldFile, "already renamed")
-		return
-	}
-	if _, err := os.Stat(newPath); err == nil {
-		report.addSkipped(oldFile, "target already exists")
-		return
-	}
-
-	if err := oldFile.Rename(newPath); err != nil {
-		report.addSkipped(oldFile, "rename failed")
-		return
-	}
-
-	if addTags {
-		if tagErr := addNewTags(newFile, jala, made, model); tagErr != nil {
-			report.addTagFailed(oldFile, tagErr.Error())
-			return
-		}
-		report.addTagged(newFile)
-	}
-
-	report.addRenamed(oldFile, newFile)
-}
-
-// removeModelPrefixes strips a recognized camera-model prefix from every
-// supported file's stem, if one is present.
-func removeModelPrefixes(dirs folders) (*Report, error) {
+func removeModelPrefixes(dirs Folders) (*Report, error) {
 	return removeDecorations(dirs, true, false)
 }
 
-// removeDateSuffixes strips a recognized Jalali date suffix from every
-// supported file's stem, if one is present.
-func removeDateSuffixes(dirs folders) (*Report, error) {
+func removeDateSuffixes(dirs Folders) (*Report, error) {
 	return removeDecorations(dirs, false, true)
 }
 
 // removeDecorations runs the walk once, invoking removeFileDecorations on
 // every supported file with the given strip flags.
-func removeDecorations(dirs folders, stripPrefixes, stripSuffixes bool) (*Report, error) {
+func removeDecorations(dirs Folders, stripPrefixes, stripSuffixes bool) (*Report, error) {
 	report := &Report{}
 	onFile := func(path FilePath) {
 		removeFileDecorations(path, stripPrefixes, stripSuffixes, report)
@@ -207,57 +125,4 @@ func removeDecorations(dirs folders, stripPrefixes, stripSuffixes bool) (*Report
 		return report, err
 	}
 	return report, nil
-}
-
-func removeFileDecorations(file FilePath, stripPrefixes, stripSuffixes bool, report *Report) {
-	var times Jalali
-	var model string
-	var err error
-
-	ext := file.GetExt()
-	switch ext {
-	case ".mp4", ".mov":
-		if ft, ferr := dateFromFilename(file); ferr == nil {
-			times = ft
-			model = ""
-			err = nil
-		} else {
-			times, _, model, err = readExifToolMeta(file)
-		}
-	default:
-		times, _, model, err = readExifToolMeta(file)
-	}
-	if err != nil {
-		report.addSkipped(file, err.Error())
-		return
-	}
-
-	var prefixes, suffixes []string
-	if stripPrefixes {
-		prefixes = buildPrefixStripSet(model)
-	}
-	if stripSuffixes {
-		suffixes = buildSuffixStripSet(times)
-	}
-
-	newStem, change := stripKnownDecorations(file, prefixes, suffixes)
-	if change {
-		report.addSkipped(file, "nothing to remove")
-		return
-	}
-	if newStem == "" {
-		report.addSkipped(file, "would become empty name")
-		return
-	}
-	newFile := FilePath{Dir: file.Dir, Name: newStem + ext}
-	if _, err := os.Stat(newFile.FullPath()); err == nil {
-		report.addSkipped(file, "target already exists")
-		return
-	}
-
-	if err := file.Rename(newFile.FullPath()); err != nil {
-		report.addSkipped(file, "rename failed")
-		return
-	}
-	report.addRenamed(file, newFile)
 }

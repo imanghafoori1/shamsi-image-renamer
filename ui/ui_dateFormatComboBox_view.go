@@ -1,4 +1,4 @@
-package main
+package ui
 
 import (
 	"fmt"
@@ -15,7 +15,7 @@ type DateFormat struct {
 }
 
 // Formats offered in the GUI. Index 0 is the default.
-var dateFormats = []DateFormat{
+var DateFormats = []DateFormat{
 	{
 		Label: "1398-11-28  (year-month-day)",
 		Suffix: func(dj Jalali) string {
@@ -54,14 +54,14 @@ var dateFormats = []DateFormat{
 	},
 }
 
-func dateFormatComboBox(s *uiState) ComboBox {
-	formatLabels := make([]string, len(dateFormats))
-	for i, f := range dateFormats {
+func dateFormatComboBox(s *UiState) ComboBox {
+	formatLabels := make([]string, len(DateFormats))
+	for i, f := range DateFormats {
 		formatLabels[i] = f.Label
 	}
 
 	return ComboBox{
-		AssignTo:     &s.formatCombo,
+		AssignTo:     &s.FormatCombo,
 		Model:        formatLabels,
 		CurrentIndex: 0,
 		Font:         bodyFont,

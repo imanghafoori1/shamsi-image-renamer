@@ -1,7 +1,10 @@
 package main
 
 import (
+	"os"
+	. "renamer/file"
 	. "renamer/jalali"
+	. "renamer/ui"
 	"strings"
 )
 
@@ -42,9 +45,62 @@ func buildPrefixStripSet(rawModel string) []string {
 // buildSuffixStripSet returns every suffix spelling a previous run could
 // have appended for this file's date, across all supported formats.
 func buildSuffixStripSet(jala Jalali) []string {
-	out := make([]string, 0, len(dateFormats))
-	for _, f := range dateFormats {
+	out := make([]string, 0, len(DateFormats))
+	for _, f := range DateFormats {
 		out = append(out, f.Suffix(jala))
 	}
 	return out
+}
+
+func removeFileDecorations(file FilePath, stripPrefixes, stripSuffixes bool, report *Report) {
+	var times Jalali
+	var model string
+	var err error
+
+	ext := file.GetExt()
+	switch ext {
+	case ".mp4", ".mov":
+		if ft, ferr := dateFromFilename(file); ferr == nil {
+			times = ft
+			model = ""
+			err = nil
+		} else {
+			times, _, model, err = readExifToolMeta(file)
+		}
+	default:
+		times, _, model, err = readExifToolMeta(file)
+	}
+	if err != nil {
+		report.AddSkipped(file, err.Error())
+		return
+	}
+
+	var prefixes, suffixes []string
+	if stripPrefixes {
+		prefixes = buildPrefixStripSet(model)
+	}
+	if stripSuffixes {
+		suffixes = buildSuffixStripSet(times)
+	}
+
+	newStem, change := stripKnownDecorations(file, prefixes, suffixes)
+	if change {
+		report.AddSkipped(file, "nothing to remove")
+		return
+	}
+	if newStem == "" {
+		report.AddSkipped(file, "would become empty name")
+		return
+	}
+	newFile := FilePath{Dir: file.Dir, Name: newStem + ext}
+	if _, err := os.Stat(newFile.FullPath()); err == nil {
+		report.AddSkipped(file, "target already exists")
+		return
+	}
+
+	if err := file.Rename(newFile.FullPath()); err != nil {
+		report.AddSkipped(file, "rename failed")
+		return
+	}
+	report.AddRenamed(file, newFile)
 }

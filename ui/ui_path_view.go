@@ -1,13 +1,13 @@
-package main
+package ui
 
 import (
 	"github.com/lxn/walk"
 	. "github.com/lxn/walk/declarative"
 )
 
-// buildPathRow returns the "Directory Path:" label, the text input, and the
+// BuildPathRow returns the "Directory Path:" label, the text input, and the
 // Browse button. The input box is stored in s.dirEdit.
-func buildPathRow(s *uiState) Widget {
+func buildPathRow(s *UiState) Widget {
 	return Composite{
 		Layout: VBox{},
 		Children: []Widget{
@@ -30,12 +30,12 @@ func buildPathRow(s *uiState) Widget {
 							dlg.InitialDirPath = s.dirEdit.Text()
 
 							if ok, err := dlg.ShowBrowseFolder(nil); err != nil {
-								s.statusLabel.SetText("Error: " + err.Error())
+								s.StatusLabel.SetText("Error: " + err.Error())
 							} else if !ok {
-								s.statusLabel.SetText("Browse cancelled.")
+								s.StatusLabel.SetText("Browse cancelled.")
 							} else {
 								s.dirEdit.SetText(dlg.FilePath)
-								s.statusLabel.SetText("Ready.")
+								s.StatusLabel.SetText("Ready.")
 							}
 						},
 					},

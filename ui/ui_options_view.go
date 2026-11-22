@@ -1,11 +1,11 @@
-package main
+package ui
 
 import (
 	. "github.com/lxn/walk/declarative"
 )
 
-// buildOptionsRow returns the option checkboxes and the date-format dropdown.
-func buildOptionsRow(s *uiState) Widget {
+// returns the option checkboxes and the date-format dropdown.
+func buildOptionsRow(s *UiState, renamer Renamer) Widget {
 	message := func(report *Report) string {
 		return doneTaggedMessage(len(report.Renamed), len(report.Skipped), len(report.Tagged))
 	}
@@ -41,7 +41,7 @@ func buildOptionsRow(s *uiState) Widget {
 						MaxSize: Size{Width: 200, Height: 42},
 						Font:    buttonFont,
 						OnClicked: func() {
-							h.runRename()
+							runRename(h, renamer)
 						},
 					},
 				},
@@ -52,7 +52,7 @@ func buildOptionsRow(s *uiState) Widget {
 
 // buildActionsRow returns the primary Rename button on its own row,
 // followed by a row of cleanup buttons.
-func buildActionsRow(s *uiState) Widget {
+func buildActionsRow(s *UiState, removeModelPrefixes, removeDateSuffixes RemoveFunc) Widget {
 	message := func(report *Report) string {
 		return doneMessage(len(report.Renamed), len(report.Skipped))
 	}
@@ -88,33 +88,33 @@ func buildActionsRow(s *uiState) Widget {
 	}
 }
 
-// options is a snapshot of the UI controls relevant to running an operation.
+// Options is a snapshot of the UI controls relevant to running an operation.
 // It must be read on the GUI thread; the values are plain data and safe to
 // hand to a worker goroutine afterward.
-type folders struct {
-	rootDir   string
-	recursive bool
+type Folders struct {
+	RootDir   string
+	Recursive bool
 }
-type options struct {
-	folders      folders
-	prependModel bool
-	addTags      bool
-	format       DateFormat
+type Options struct {
+	Folders      Folders
+	PrependModel bool
+	AddTags      bool
+	Format       DateFormat
 }
 
-func readFormState(s *uiState) options {
-	idx := s.formatCombo.CurrentIndex()
-	if idx < 0 || idx >= len(dateFormats) {
+func readFormState(s *UiState) Options {
+	idx := s.FormatCombo.CurrentIndex()
+	if idx < 0 || idx >= len(DateFormats) {
 		idx = 0
 	}
 
-	return options{
-		folders: folders{
+	return Options{
+		Folders: Folders{
 			s.dirEdit.Text(),
 			s.recursiveCheck.Checked(),
 		},
-		prependModel: s.prependModelCheck.Checked(),
-		addTags:      s.addTagsCheck.Checked(),
-		format:       dateFormats[idx],
+		PrependModel: s.prependModelCheck.Checked(),
+		AddTags:      s.addTagsCheck.Checked(),
+		Format:       DateFormats[idx],
 	}
 }
