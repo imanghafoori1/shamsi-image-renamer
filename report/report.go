@@ -1,9 +1,11 @@
-package ui
+package report
 
 import (
 	"fmt"
 	. "renamer/file"
 )
+
+type ProgressFunc func(done, total int, currentName string)
 
 type Report struct {
 	Renamed   []string

@@ -1,7 +1,8 @@
-package main
+package exif
 
 import (
 	"encoding/json"
+	"errors"
 	"os"
 	"os/exec"
 	. "renamer/file"
@@ -11,6 +12,12 @@ import (
 	"time"
 )
 
+var (
+	errNoEXIF     = errors.New("no EXIF data")
+	ErrNoDateTime = errors.New("no DateTimeOriginal")
+	ErrBadDateFmt = errors.New("bad date format")
+)
+
 type exiftoolOutput struct {
 	DateTimeOriginal string `json:"DateTimeOriginal"`
 	Model            string `json:"Model"`
@@ -18,13 +25,13 @@ type exiftoolOutput struct {
 }
 
 // returns (captureTime, Make, Model).
-func readExifToolMeta(file FilePath) (Jalali, string, string, error) {
+func ReadExifToolMeta(file FilePath) (Jalali, string, string, error) {
 	exifError := func(errNoEXIF error) (Jalali, string, string, error) {
 		return Jalali{}, "", "", errNoEXIF
 	}
 
 	path := file.FullPath()
-	exiftool, err := ensureExifTool()
+	exiftool, err := EnsureExifTool()
 	if err != nil {
 		return exifError(errNoEXIF)
 	}
@@ -64,11 +71,11 @@ func readExifToolMeta(file FilePath) (Jalali, string, string, error) {
 		return exifError(errNoEXIF)
 	}
 	if rec.DateTimeOriginal == "" {
-		return Jalali{}, makeStr, modelStr, errNoDateTime
+		return Jalali{}, makeStr, modelStr, ErrNoDateTime
 	}
 	tm, err := time.Parse("2006:01:02 15:04:05", rec.DateTimeOriginal)
 	if err != nil {
-		return Jalali{}, makeStr, modelStr, errBadDateFmt
+		return Jalali{}, makeStr, modelStr, ErrBadDateFmt
 	}
 	return TimeToJalali(tm), makeStr, modelStr, nil
 }

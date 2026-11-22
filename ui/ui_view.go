@@ -1,15 +1,16 @@
 package ui
 
 import (
+	. "renamer/report"
+
 	"github.com/lxn/walk"
 	. "github.com/lxn/walk/declarative"
 )
 
-type Renamer func(Options, ProgressFunc) WorkFunc
+type renamerFunc func(Options, ProgressFunc) WorkFunc
 
-// runUI builds and runs the main window. Blocks until the window closes.
-func RunUI(removeModelPrefixes, removeDateSuffixes RemoveFunc, renamer Renamer) {
-	s := &UiState{}
+func RunUI(renamer renamerFunc, removeModelPrefixes, removeDateSuffixes removeFunc) {
+	s := &uiState{}
 
 	var err error
 
@@ -30,12 +31,12 @@ func RunUI(removeModelPrefixes, removeDateSuffixes RemoveFunc, renamer Renamer) 
 		Layout:   VBox{},
 		AssignTo: &s.MainWindow,
 		Children: []Widget{
-			buildPathRow(s),
-			buildOptionsRow(s, renamer),
-			buildActionsRow(s, removeModelPrefixes, removeDateSuffixes),
+			s.buildPathRow(),
+			s.buildOptionsRow(renamer),
+			s.buildActionsRow(removeModelPrefixes, removeDateSuffixes),
 			Label{AssignTo: &s.StatusLabel, Text: "Ready.", Font: bodyFont},
 			Label{Text: ""},
-			buildReportSection(s),
+			s.buildReportSection(),
 		},
 	}.Create()
 

@@ -1,9 +1,10 @@
-package main
+package tags
 
 import (
 	"fmt"
 	"os"
 	"os/exec"
+	. "renamer/exif"
 	. "renamer/file"
 	. "renamer/jalali"
 
@@ -17,8 +18,8 @@ import (
 // -charset filename=utf8. This is required on Windows: non-ASCII paths are
 // mangled by the Win32 command-line encoding before ExifTool can see them,
 // and ExifTool's own -charset flag cannot recover them once corrupted.
-func addNewTags(file FilePath, jala Jalali, cameraMake, cameraModel string) error {
-	exiftool, err := ensureExifTool()
+func AddNewTags(file FilePath, jala Jalali, cameraMake, cameraModel string) error {
+	exiftool, err := EnsureExifTool()
 	if err != nil {
 		return fmt.Errorf("exiftool not available: %w", err)
 	}

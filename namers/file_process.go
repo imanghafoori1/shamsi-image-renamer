@@ -1,10 +1,15 @@
-package main
+package namers
 
 import (
 	"os"
+	"regexp"
+	. "renamer/exif"
 	. "renamer/file"
 	. "renamer/jalali"
+	. "renamer/report"
+	. "renamer/tags"
 	. "renamer/ui"
+	"time"
 )
 
 func processFile(oldFile FilePath, uiOptions Options, report *Report) {
@@ -23,10 +28,10 @@ func processFile(oldFile FilePath, uiOptions Options, report *Report) {
 			made, model = "", ""
 			err = nil
 		} else {
-			jala, made, model, err = readExifToolMeta(oldFile)
+			jala, made, model, err = ReadExifToolMeta(oldFile)
 		}
 	default:
-		jala, made, model, err = readExifToolMeta(oldFile)
+		jala, made, model, err = ReadExifToolMeta(oldFile)
 	}
 	if err != nil {
 		report.AddSkipped(oldFile, err.Error())
@@ -75,7 +80,7 @@ func processFile(oldFile FilePath, uiOptions Options, report *Report) {
 	}
 
 	if addTags {
-		if tagErr := addNewTags(newFile, jala, made, model); tagErr != nil {
+		if tagErr := AddNewTags(newFile, jala, made, model); tagErr != nil {
 			report.AddTagFailed(oldFile, tagErr.Error())
 			return
 		}
@@ -83,4 +88,19 @@ func processFile(oldFile FilePath, uiOptions Options, report *Report) {
 	}
 
 	report.AddRenamed(oldFile, newFile)
+}
+
+var filenameDateRe = regexp.MustCompile(`(20[0-4]\d(?:0[1-9]|1[0-2])(?:0[1-9]|[12]\d|3[01]))`)
+
+func dateFromFilename(file FilePath) (Jalali, error) {
+	m := filenameDateRe.FindAllStringSubmatch(file.Name, -1)
+	if len(m) == 0 {
+		return Jalali{}, ErrNoDateTime
+	}
+	dateStr := m[len(m)-1][1]
+	tm, err := time.Parse("20060102", dateStr)
+	if err != nil {
+		return Jalali{}, ErrBadDateFmt
+	}
+	return TimeToJalali(tm), nil
 }

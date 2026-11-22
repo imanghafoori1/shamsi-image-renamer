@@ -5,13 +5,15 @@ import (
 	"strings"
 	"sync"
 
+	. "renamer/report"
+
 	"github.com/lxn/walk"
 	. "github.com/lxn/walk/declarative"
 )
 
-// uiState holds the widget references that must be shared between the
+// holds the widget references that must be shared between the
 // builders and their event callbacks.
-type UiState struct {
+type uiState struct {
 	MainWindow        *walk.MainWindow
 	dirEdit           *walk.LineEdit
 	StatusLabel       *walk.Label
@@ -34,7 +36,7 @@ type UiState struct {
 }
 
 type actionHandler struct {
-	uiState *UiState
+	uiState *uiState
 	message func(*Report) string
 }
 
@@ -45,7 +47,7 @@ var (
 	buttonFont = Font{PointSize: 12, Bold: true} // primary action
 )
 
-func (s *UiState) setProgress(done, total int, currentName string) {
+func (s *uiState) setProgress(done, total int, currentName string) {
 	s.progressMu.Lock()
 	s.progressDone = done
 	s.progressTotal = total
@@ -67,13 +69,13 @@ func (s *UiState) setProgress(done, total int, currentName string) {
 	}()
 }
 
-func (s *UiState) showError(msg string) {
+func (s *uiState) showError(msg string) {
 	s.StatusLabel.SetFont(s.ErrorFont)
 	s.StatusLabel.SetTextColor(walk.RGB(200, 0, 0))
 	s.StatusLabel.SetText(msg)
 }
 
-func (s *UiState) updateReport(r *Report) {
+func (s *uiState) updateReport(r *Report) {
 	s.summaryLabel.SetText(fmt.Sprintf("Renamed: %d      Skipped: %d      Tagged: %d",
 		len(r.Renamed), len(r.Skipped), len(r.Tagged)))
 

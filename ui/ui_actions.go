@@ -1,10 +1,12 @@
 package ui
 
+import . "renamer/report"
+import . "renamer/dirWalker"
+
 // WorkFunc is the long-running operation both runRename and runRemove
 // hand to runInBackground. It's called on the worker goroutine and must
 // not touch the GUI.
 type WorkFunc func() (*Report, error)
-type ProgressFunc func(done, total int, currentName string)
 
 // runInBackground handles the shared lifecycle: guard against re-entry,
 // flip the running flag, start the worker, and marshal the result back
@@ -32,7 +34,7 @@ func (h *actionHandler) runInBackground(work WorkFunc) {
 }
 
 // runRename validates input and kicks off processDir.
-func runRename(h actionHandler, cb Renamer) {
+func runRename(h actionHandler, cb renamerFunc) {
 	opts := readFormState(h.uiState)
 	if opts.Folders.RootDir == "" {
 		h.uiState.showError(errorPathMessage())
@@ -42,13 +44,13 @@ func runRename(h actionHandler, cb Renamer) {
 	h.runInBackground(cb(opts, h.uiState.setProgress))
 }
 
-// RemoveFunc is the operation runRemove invokes. It receives the directory
+// removeFunc is the operation runRemove invokes. It receives the directory
 // and the recursive flag, and returns the report and any error.
-type RemoveFunc func(dir Folders) (*Report, error)
+type removeFunc func(dir Folders) (*Report, error)
 
-type RenameFunc func() (*Report, error)
+//type RenameFunc func() (*Report, error)
 
-func (h *actionHandler) runRemove(op RemoveFunc) {
+func (h *actionHandler) runRemove(op removeFunc) {
 	s := h.uiState
 	folders := readFormState(s).Folders
 	if folders.RootDir == "" {

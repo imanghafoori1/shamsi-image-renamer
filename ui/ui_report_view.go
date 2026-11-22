@@ -6,7 +6,7 @@ import (
 
 // buildReportSection returns the summary label plus the two scrollable
 // list boxes for renamed and skipped files.
-func buildReportSection(s *UiState) Widget {
+func (s *uiState) buildReportSection() Widget {
 	return Composite{
 		Layout: VBox{},
 		Children: []Widget{

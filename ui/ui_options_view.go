@@ -1,11 +1,21 @@
 package ui
 
 import (
+	. "renamer/dirWalker"
+	. "renamer/report"
+
 	. "github.com/lxn/walk/declarative"
 )
 
+type Options struct {
+	Folders      Folders
+	PrependModel bool
+	AddTags      bool
+	Format       DateFormat
+}
+
 // returns the option checkboxes and the date-format dropdown.
-func buildOptionsRow(s *UiState, renamer Renamer) Widget {
+func (s *uiState) buildOptionsRow(renamer renamerFunc) Widget {
 	message := func(report *Report) string {
 		return doneTaggedMessage(len(report.Renamed), len(report.Skipped), len(report.Tagged))
 	}
@@ -50,9 +60,9 @@ func buildOptionsRow(s *UiState, renamer Renamer) Widget {
 	}
 }
 
-// buildActionsRow returns the primary Rename button on its own row,
+// returns the primary Rename button on its own row,
 // followed by a row of cleanup buttons.
-func buildActionsRow(s *UiState, removeModelPrefixes, removeDateSuffixes RemoveFunc) Widget {
+func (s *uiState) buildActionsRow(removeModelPrefixes, removeDateSuffixes removeFunc) Widget {
 	message := func(report *Report) string {
 		return doneMessage(len(report.Renamed), len(report.Skipped))
 	}
@@ -88,21 +98,7 @@ func buildActionsRow(s *UiState, removeModelPrefixes, removeDateSuffixes RemoveF
 	}
 }
 
-// Options is a snapshot of the UI controls relevant to running an operation.
-// It must be read on the GUI thread; the values are plain data and safe to
-// hand to a worker goroutine afterward.
-type Folders struct {
-	RootDir   string
-	Recursive bool
-}
-type Options struct {
-	Folders      Folders
-	PrependModel bool
-	AddTags      bool
-	Format       DateFormat
-}
-
-func readFormState(s *UiState) Options {
+func readFormState(s *uiState) Options {
 	idx := s.FormatCombo.CurrentIndex()
 	if idx < 0 || idx >= len(DateFormats) {
 		idx = 0

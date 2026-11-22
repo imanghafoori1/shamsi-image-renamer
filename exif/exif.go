@@ -1,4 +1,4 @@
-package main
+package exif
 
 import (
 	"embed"
@@ -9,20 +9,18 @@ import (
 	"sync"
 )
 
-//go:embed exiftool
-var exiftoolFS embed.FS
-
-var (
-	exiftoolPath string
-	exiftoolOnce sync.Once
-	exiftoolErr  error
-)
-
-func ensureExifTool() (string, error) {
+func EnsureExifTool() (string, error) {
 	exiftoolOnce.Do(func() {
 		exiftoolPath, exiftoolErr = extractExifTool()
 	})
 	return exiftoolPath, exiftoolErr
+}
+
+func CleanupExifTool() {
+	if exiftoolPath != "" {
+		os.RemoveAll(filepath.Dir(exiftoolPath))
+		exiftoolPath = ""
+	}
 }
 
 // extractExifTool tries a system temp directory first. If that fails
@@ -89,9 +87,11 @@ func mustExe() string {
 	return p
 }
 
-func cleanupExifTool() {
-	if exiftoolPath != "" {
-		os.RemoveAll(filepath.Dir(exiftoolPath))
-		exiftoolPath = ""
-	}
-}
+//go:embed exiftool
+var exiftoolFS embed.FS
+
+var (
+	exiftoolPath string
+	exiftoolOnce sync.Once
+	exiftoolErr  error
+)

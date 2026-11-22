@@ -7,7 +7,7 @@ import (
 
 // BuildPathRow returns the "Directory Path:" label, the text input, and the
 // Browse button. The input box is stored in s.dirEdit.
-func buildPathRow(s *UiState) Widget {
+func (s *uiState) buildPathRow() Widget {
 	return Composite{
 		Layout: VBox{},
 		Children: []Widget{

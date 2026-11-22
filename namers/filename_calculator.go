@@ -1,10 +1,13 @@
-package main
+package namers
 
 import (
 	"os"
+	. "renamer/exif"
 	. "renamer/file"
 	. "renamer/jalali"
+	. "renamer/report"
 	. "renamer/ui"
+
 	"strings"
 )
 
@@ -52,7 +55,7 @@ func buildSuffixStripSet(jala Jalali) []string {
 	return out
 }
 
-func removeFileDecorations(file FilePath, stripPrefixes, stripSuffixes bool, report *Report) {
+func RemoveFileDecorations(file FilePath, stripPrefixes, stripSuffixes bool, report *Report) {
 	var times Jalali
 	var model string
 	var err error
@@ -65,10 +68,10 @@ func removeFileDecorations(file FilePath, stripPrefixes, stripSuffixes bool, rep
 			model = ""
 			err = nil
 		} else {
-			times, _, model, err = readExifToolMeta(file)
+			times, _, model, err = ReadExifToolMeta(file)
 		}
 	default:
-		times, _, model, err = readExifToolMeta(file)
+		times, _, model, err = ReadExifToolMeta(file)
 	}
 	if err != nil {
 		report.AddSkipped(file, err.Error())
