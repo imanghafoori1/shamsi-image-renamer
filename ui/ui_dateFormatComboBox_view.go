@@ -54,7 +54,7 @@ var DateFormats = []DateFormat{
 	},
 }
 
-func dateFormatComboBox(s *uiState) ComboBox {
+func (s *uiState) dateFormatComboBox() ComboBox {
 	formatLabels := make([]string, len(DateFormats))
 	for i, f := range DateFormats {
 		formatLabels[i] = f.Label

@@ -44,14 +44,14 @@ func (s *uiState) buildOptionsRow(renamer renamerFunc) Widget {
 				Layout: HBox{},
 				Children: []Widget{
 					Label{Text: "Date format:", Font: bodyFont},
-					dateFormatComboBox(s),
+					s.dateFormatComboBox(),
 					PushButton{
 						Text:    "Rename Files",
 						MinSize: Size{Width: 200, Height: 42},
 						MaxSize: Size{Width: 200, Height: 42},
 						Font:    buttonFont,
 						OnClicked: func() {
-							runRename(h, renamer)
+							h.runRename(renamer)
 						},
 					},
 				},

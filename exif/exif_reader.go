@@ -14,8 +14,8 @@ import (
 
 var (
 	errNoEXIF     = errors.New("no EXIF data")
-	ErrNoDateTime = errors.New("no DateTimeOriginal")
-	ErrBadDateFmt = errors.New("bad date format")
+	errNoDateTime = errors.New("no DateTimeOriginal")
+	errBadDateFmt = errors.New("bad date format")
 )
 
 type exiftoolOutput struct {
@@ -26,8 +26,8 @@ type exiftoolOutput struct {
 
 // returns (captureTime, Make, Model).
 func ReadExifToolMeta(file FilePath) (Jalali, string, string, error) {
-	exifError := func(errNoEXIF error) (Jalali, string, string, error) {
-		return Jalali{}, "", "", errNoEXIF
+	exifError := func(errNoEXIFs error) (Jalali, string, string, error) {
+		return Jalali{}, "", "", errNoEXIFs
 	}
 
 	path := file.FullPath()
@@ -41,7 +41,6 @@ func ReadExifToolMeta(file FilePath) (Jalali, string, string, error) {
 		return exifError(err)
 	}
 	defer os.Remove(tmpFile.Name())
-	defer tmpFile.Close()
 
 	// Write the path as UTF-8, followed by a newline.
 	if _, err := tmpFile.WriteString(path + "\n"); err != nil {
@@ -71,11 +70,11 @@ func ReadExifToolMeta(file FilePath) (Jalali, string, string, error) {
 		return exifError(errNoEXIF)
 	}
 	if rec.DateTimeOriginal == "" {
-		return Jalali{}, makeStr, modelStr, ErrNoDateTime
+		return Jalali{}, makeStr, modelStr, errNoDateTime
 	}
 	tm, err := time.Parse("2006:01:02 15:04:05", rec.DateTimeOriginal)
 	if err != nil {
-		return Jalali{}, makeStr, modelStr, ErrBadDateFmt
+		return Jalali{}, makeStr, modelStr, errBadDateFmt
 	}
 	return TimeToJalali(tm), makeStr, modelStr, nil
 }

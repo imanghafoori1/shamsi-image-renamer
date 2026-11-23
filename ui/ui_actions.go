@@ -33,8 +33,8 @@ func (h *actionHandler) runInBackground(work WorkFunc) {
 	}()
 }
 
-// runRename validates input and kicks off processDir.
-func runRename(h actionHandler, cb renamerFunc) {
+// validates input and kicks off processDir.
+func (h actionHandler) runRename(cb renamerFunc) {
 	opts := readFormState(h.uiState)
 	if opts.Folders.RootDir == "" {
 		h.uiState.showError(errorPathMessage())

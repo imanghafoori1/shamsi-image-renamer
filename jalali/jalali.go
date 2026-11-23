@@ -13,6 +13,6 @@ type Jalali struct {
 }
 
 func TimeToJalali(times time.Time) Jalali {
-	jy, jm, jd, _ := jalaali.ToJalaali(times.Year(), times.Month(), times.Day())
-	return Jalali{jy, int(jm), jd}
+	y, m, d, _ := jalaali.ToJalaali(times.Year(), times.Month(), times.Day())
+	return Jalali{Year: y, Month: int(m), Day: d}
 }
