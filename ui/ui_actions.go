@@ -35,7 +35,7 @@ func (h *actionHandler) runInBackground(work WorkFunc) {
 
 // validates input and kicks off processDir.
 func (h actionHandler) runRename(cb renamerFunc) {
-	opts := readFormState(h.uiState)
+	opts := h.uiState.readFormState()
 	if opts.Folders.RootDir == "" {
 		h.uiState.showError(errorPathMessage())
 		return
@@ -52,7 +52,7 @@ type removeFunc func(dir Folders) (*Report, error)
 
 func (h *actionHandler) runRemove(op removeFunc) {
 	s := h.uiState
-	folders := readFormState(s).Folders
+	folders := s.readFormState().Folders
 	if folders.RootDir == "" {
 		s.showError(errorPathMessage())
 		return

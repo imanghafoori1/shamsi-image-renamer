@@ -98,7 +98,7 @@ func (s *uiState) buildActionsRow(removeModelPrefixes, removeDateSuffixes remove
 	}
 }
 
-func readFormState(s *uiState) Options {
+func (s *uiState) readFormState() Options {
 	idx := s.FormatCombo.CurrentIndex()
 	if idx < 0 || idx >= len(DateFormats) {
 		idx = 0

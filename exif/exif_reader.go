@@ -14,8 +14,8 @@ import (
 
 var (
 	errNoEXIF     = errors.New("no EXIF data")
-	errNoDateTime = errors.New("no DateTimeOriginal")
-	errBadDateFmt = errors.New("bad date format")
+	ErrNoDateTime = errors.New("no DateTimeOriginal")
+	ErrBadDateFmt = errors.New("bad date format")
 )
 
 type exiftoolOutput struct {
@@ -70,11 +70,11 @@ func ReadExifToolMeta(file FilePath) (Jalali, string, string, error) {
 		return exifError(errNoEXIF)
 	}
 	if rec.DateTimeOriginal == "" {
-		return Jalali{}, makeStr, modelStr, errNoDateTime
+		return Jalali{}, makeStr, modelStr, ErrNoDateTime
 	}
 	tm, err := time.Parse("2006:01:02 15:04:05", rec.DateTimeOriginal)
 	if err != nil {
-		return Jalali{}, makeStr, modelStr, errBadDateFmt
+		return Jalali{}, makeStr, modelStr, ErrBadDateFmt
 	}
 	return TimeToJalali(tm), makeStr, modelStr, nil
 }
